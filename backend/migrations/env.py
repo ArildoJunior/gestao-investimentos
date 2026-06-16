@@ -2,7 +2,7 @@ from logging.config import fileConfig
 from pathlib import Path
 import os
 import sys
-import app.models  # noqa: F401
+import app.models  
 from app.models.base import Base
 target_metadata = Base.metadata
 
