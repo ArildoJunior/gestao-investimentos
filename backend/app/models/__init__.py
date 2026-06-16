@@ -1,14 +1,13 @@
 from importlib import import_module
 from pathlib import Path
-import pkgutil
 
 from app.models.base import Base
 
-MODELS_DIR = Path(__file__).resolve().parent
+_models_dir = Path(__file__).parent
 
-for module in pkgutil.iter_modules([str(MODELS_DIR)]):
-    module_name = module.name
-    if module_name in {"base", "__init__"} or module_name.startswith("_"):
+for file in _models_dir.glob("*.py"):
+    module_name = file.stem
+    if module_name in {"__init__", "base"} or module_name.startswith("_"):
         continue
     import_module(f"{__name__}.{module_name}")
 

@@ -2,6 +2,9 @@ from logging.config import fileConfig
 from pathlib import Path
 import os
 import sys
+import app.models  # noqa: F401
+from app.models.base import Base
+target_metadata = Base.metadata
 
 from alembic import context
 from dotenv import load_dotenv
