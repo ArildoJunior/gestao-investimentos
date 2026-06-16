@@ -1,13 +1,14 @@
+from __future__ import annotations
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, ForeignKey, Boolean
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
-from app.models.usuario import Usuario
 
 class Carteira(TimestampMixin, Base):
     __tablename__ = "carteiras"
@@ -23,12 +24,12 @@ class Carteira(TimestampMixin, Base):
     # Ex.: "Real", "Simulada", "Teste", "Estratégia X"
     tipo: Mapped[str] = mapped_column(String(50), nullable=False, default="Real")
 
-    # Dono da carteira (no seu caso provavelmente 1 usuário só, mas já deixamos pronto)
-    usuario_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("usuarios.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    # Por enquanto não vamos amarrar a usuário; se quiser isso mais tarde, adicionamos usuario_id
+    # usuario_id: Mapped[UUID] = mapped_column(
+    #     PG_UUID(as_uuid=True),
+    #     ForeignKey("usuarios.id", ondelete="CASCADE"),
+    #     nullable=False,
+    # )
 
     ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -37,4 +38,17 @@ class Carteira(TimestampMixin, Base):
     data_encerramento: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Relacionamentos (serão usados depois)
-    usuario: Mapped["Usuario"] = relationship("Usuario", backref="carteiras")
+    movimentacoes: Mapped[list["Movimentacao"]] = relationship(
+        back_populates="carteira",
+        cascade="all, delete-orphan",
+    )
+
+    aportes: Mapped[list["Aporte"]] = relationship(
+        back_populates="carteira",
+        cascade="all, delete-orphan",
+    )
+
+    posicoes: Mapped[list["Posicao"]] = relationship(
+        back_populates="carteira",
+        cascade="all, delete-orphan",
+    )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import uuid
 
 from sqlalchemy import Enum, ForeignKey, Numeric, String
@@ -9,19 +10,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 
-class TipoConta(str):
+class TipoConta(str, enum.Enum):
     CORRENTE = "CORRENTE"
     INVESTIMENTO = "INVESTIMENTO"
     POUPANCA = "POUPANCA"
 
 
-class Moeda(str):
+class Moeda(str, enum.Enum):
     BRL = "BRL"
     USD = "USD"
     EUR = "EUR"
 
 
-class StatusConta(str):
+class StatusConta(str, enum.Enum):
     ATIVA = "ATIVA"
     INATIVA = "INATIVA"
 
@@ -43,18 +44,13 @@ class Conta(TimestampMixin, Base):
 
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    tipo: Mapped[str] = mapped_column(
-        Enum(
-            TipoConta.CORRENTE,
-            TipoConta.INVESTIMENTO,
-            TipoConta.POUPANCA,
-            name="tipo_conta_enum",
-        ),
+    tipo: Mapped[TipoConta] = mapped_column(
+        Enum(TipoConta, name="tipo_conta_enum"),
         nullable=False,
     )
 
-    moeda: Mapped[str] = mapped_column(
-        Enum(Moeda.BRL, Moeda.USD, Moeda.EUR, name="moeda_enum"),
+    moeda: Mapped[Moeda] = mapped_column(
+        Enum(Moeda, name="moeda_enum"),
         nullable=False,
         default=Moeda.BRL,
     )
@@ -65,10 +61,25 @@ class Conta(TimestampMixin, Base):
         default=0,
     )
 
-    status: Mapped[str] = mapped_column(
-        Enum(StatusConta.ATIVA, StatusConta.INATIVA, name="status_conta_enum"),
+    status: Mapped[StatusConta] = mapped_column(
+        Enum(StatusConta, name="status_conta_enum"),
         nullable=False,
         default=StatusConta.ATIVA,
     )
 
     instituicao: Mapped["Instituicao"] = relationship("Instituicao", backref="contas")
+
+    movimentacoes: Mapped[list["Movimentacao"]] = relationship(
+        back_populates="conta",
+        cascade="all, delete-orphan",
+    )
+
+    aportes: Mapped[list["Aporte"]] = relationship(
+        back_populates="conta",
+        cascade="all, delete-orphan",
+    )
+
+    posicoes: Mapped[list["Posicao"]] = relationship(
+        back_populates="conta",
+        cascade="all, delete-orphan",
+    )
