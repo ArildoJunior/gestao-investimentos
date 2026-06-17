@@ -12,11 +12,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models.movimentacao import Movimentacao
-    from app.models.posicao import Posicao
-    from app.models.provento import Provento
     from app.models.instituicao import Instituicao
+    from app.models.movimentacao import Movimentacao
     from app.models.aporte import Aporte
+    from app.models.posicao import Posicao
 
 class TipoConta(str, enum.Enum):
     CORRENTE = "CORRENTE"

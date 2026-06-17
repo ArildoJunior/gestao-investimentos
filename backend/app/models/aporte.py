@@ -3,21 +3,22 @@ from __future__ import annotations
 import enum
 from datetime import date
 from decimal import Decimal
-from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
 
 from sqlalchemy import Date, Enum, ForeignKey, Numeric, Text
-
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    # Importados só para type checking, não em runtime
     from app.models.carteira import Carteira
     from app.models.conta import Conta
     from app.models.movimentacao import Movimentacao
     from app.models.provento import Provento
+
 
 class TipoAporte(str, enum.Enum):
     EXTERNO = "EXTERNO"
@@ -25,7 +26,6 @@ class TipoAporte(str, enum.Enum):
 
 
 class OrigemAporte(str, enum.Enum):
-    # NULL será representado como None em Python
     DIVIDENDO = "DIVIDENDO"
     JCP = "JCP"
     RENDIMENTO = "RENDIMENTO"
@@ -73,7 +73,11 @@ class Aporte(TimestampMixin, Base):
         nullable=False,
     )
 
-    data_aporte: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    data_aporte: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        index=True,
+    )
 
     movimentacao_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
@@ -95,7 +99,7 @@ class Aporte(TimestampMixin, Base):
     conta: Mapped["Conta"] = relationship(
         back_populates="aportes",
     )
-    
+
     movimentacao: Mapped["Movimentacao | None"] = relationship(
         back_populates="aporte_relacionado",
     )
