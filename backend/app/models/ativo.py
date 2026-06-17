@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import enum
+from decimal import Decimal
+from typing import TYPE_CHECKING      
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, String
+from sqlalchemy import Boolean, DateTime, Enum, String, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+if TYPE_CHECKING:  
+    from app.models.carteira import Carteira
+    from app.models.conta import Conta
+    from app.models.movimentacao import Movimentacao
+    from app.models.provento import Provento
+    from app.models.posicao import Posicao
 
 class ClasseAtivo(str, enum.Enum):
     ACAO = "ACAO"

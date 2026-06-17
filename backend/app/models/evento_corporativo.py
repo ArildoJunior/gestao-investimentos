@@ -18,6 +18,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.ativo import Ativo
+
 
 class TipoEventoCorporativo(str, enum.Enum):
     SPLIT = "SPLIT"

@@ -11,6 +11,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.movimentacao import Movimentacao
+    from app.models.posicao import Posicao
+    from app.models.provento import Provento
+    from app.models.ativo import Ativo
+    from app.models.aporte import Aporte
+
 
 class TipoProvento(str, enum.Enum):
     DIVIDENDO = "DIVIDENDO"

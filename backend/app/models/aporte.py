@@ -4,19 +4,20 @@ import enum
 from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
 
-from sqlalchemy import (
-    Date,
-    Enum,
-    ForeignKey,
-    Numeric,
-    Text,
-)
+from sqlalchemy import Date, Enum, ForeignKey, Numeric, Text
+
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
+if TYPE_CHECKING:
+    from app.models.carteira import Carteira
+    from app.models.conta import Conta
+    from app.models.movimentacao import Movimentacao
+    from app.models.provento import Provento
 
 class TipoAporte(str, enum.Enum):
     EXTERNO = "EXTERNO"
