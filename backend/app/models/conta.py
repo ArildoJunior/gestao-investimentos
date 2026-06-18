@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.movimentacao import Movimentacao
     from app.models.aporte import Aporte
     from app.models.posicao import Posicao
+    from app.models.provento import Provento
 
 class TipoConta(str, enum.Enum):
     CORRENTE = "CORRENTE"
@@ -87,6 +88,11 @@ class Conta(TimestampMixin, Base):
     )
 
     posicoes: Mapped[list["Posicao"]] = relationship(
+        back_populates="conta",
+        cascade="all, delete-orphan",
+    )
+
+    proventos: Mapped[list["Provento"]] = relationship(
         back_populates="conta",
         cascade="all, delete-orphan",
     )

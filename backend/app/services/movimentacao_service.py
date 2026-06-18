@@ -1,21 +1,17 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from uuid import UUID
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.preco_medio import recalcular_posicao
-from app.models.ativo import Ativo
-from app.models.carteira import Carteira
-from app.models.conta import Conta
-from app.models.movimentacao import Movimentacao, TipoMovimentacao
+from app.models.movimentacao import Movimentacao, TipoMovimentacao, TipoOperacao
 from app.models.posicao import Posicao
 from app.schemas.movimentacao import MovimentacaoCreate, MovimentacaoRead
+from app.core.preco_medio import recalcular_posicao
 
 
 def _calcular_valores_financeiros(
+    *,
     quantidade: Decimal,
     preco_unitario: Decimal,
     corretagem: Decimal,
@@ -24,109 +20,147 @@ def _calcular_valores_financeiros(
     outras_taxas: Decimal,
     tipo_movimentacao: TipoMovimentacao,
 ) -> tuple[Decimal, Decimal]:
+    """
+    Calcula valor_bruto e valor_liquido da operação.
+    """
     valor_bruto = quantidade * preco_unitario
-    custos = corretagem + emolumentos + iss + outras_taxas
+
+    custos = (
+        (corretagem or Decimal("0"))
+        + (emolumentos or Decimal("0"))
+        + (iss or Decimal("0"))
+        + (outras_taxas or Decimal("0"))
+    )
 
     if tipo_movimentacao == TipoMovimentacao.COMPRA:
+        # Compra: valor_liquido = valor_bruto + custos
         valor_liquido = valor_bruto + custos
     else:
-        # VENDA: custos diminuem o líquido recebido
+        # Venda: valor_liquido = valor_bruto - custos
         valor_liquido = valor_bruto - custos
 
     return valor_bruto, valor_liquido
 
 
-def registrar_movimentacao(db: Session, data: MovimentacaoCreate) -> MovimentacaoRead:
+def _normalizar_tipo_operacao(valor: str) -> str:
     """
-    Registra uma compra/venda, atualiza posição e retorna a movimentação.
+    Mantém compatibilidade de payload legado:
+    SWING_TRADE -> SWING
     """
+    valor_normalizado = valor.strip().upper()
+    if valor_normalizado == "SWING_TRADE":
+        return "SWING"
+    return valor_normalizado
 
-    # 1. Garantir que carteira, ativo e conta (se enviada) existem
-    carteira = db.get(Carteira, data.carteira_id)
-    if carteira is None:
-        raise ValueError("Carteira não encontrada.")
 
-    ativo = db.get(Ativo, data.ativo_id)
-    if ativo is None:
-        raise ValueError("Ativo não encontrado.")
+def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> MovimentacaoRead:
+    """
+    Registra uma movimentação (COMPRA/VENDA) e atualiza a posição correspondente.
+    """
+    try:
+        # 1. Converte strings de entrada em enums
+        tipo_mov_enum = TipoMovimentacao(dados.tipo_movimentacao.strip().upper())
+        tipo_op_enum = TipoOperacao(_normalizar_tipo_operacao(dados.tipo_operacao))
 
-    conta: Conta | None = None
-    if data.conta_id is not None:
-        conta = db.get(Conta, data.conta_id)
-        if conta is None:
-            raise ValueError("Conta não encontrada.")
-
-    # 2. Buscar (ou criar) posição existente
-    stmt = select(Posicao).where(
-        Posicao.carteira_id == data.carteira_id,
-        Posicao.ativo_id == data.ativo_id,
-        Posicao.conta_id.is_(data.conta_id) if data.conta_id is None else Posicao.conta_id == data.conta_id,
-    )
-    posicao = db.scalar(stmt)
-
-    quantidade_atual = posicao.quantidade if posicao else Decimal("0")
-    preco_medio_atual = posicao.preco_medio if posicao else Decimal("0")
-
-    # 3. Calcular valores da movimentação
-    valor_bruto, valor_liquido = _calcular_valores_financeiros(
-        quantidade=data.quantidade,
-        preco_unitario=data.preco_unitario,
-        corretagem=data.corretagem,
-        emolumentos=data.emolumentos,
-        iss=data.iss,
-        outras_taxas=data.outras_taxas,
-        tipo_movimentacao=TipoMovimentacao(data.tipo_movimentacao),
-    )
-
-    # 4. Recalcular posição
-    resultado_posicao = recalcular_posicao(
-        tipo=data.tipo_movimentacao,  # "COMPRA" ou "VENDA"
-        quantidade_atual=quantidade_atual,
-        preco_medio_atual=preco_medio_atual,
-        quantidade_operacao=data.quantidade,
-        preco_unitario=data.preco_unitario,
-    )
-
-    # 5. Atualizar/criar posição
-    if posicao is None:
-        posicao = Posicao(
-            carteira_id=data.carteira_id,
-            conta_id=data.conta_id,
-            ativo_id=data.ativo_id,
-            quantidade=resultado_posicao.quantidade,
-            preco_medio=resultado_posicao.preco_medio,
-            custo_total=resultado_posicao.custo_total,
+        # 2. Busca (se existir) a posição atual desse ativo na carteira/conta
+        posicao: Posicao | None = (
+            db.query(Posicao)
+            .filter(
+                Posicao.carteira_id == dados.carteira_id,
+                Posicao.ativo_id == dados.ativo_id,
+                Posicao.conta_id == dados.conta_id,
+            )
+            .one_or_none()
         )
-        db.add(posicao)
-    else:
-        posicao.quantidade = resultado_posicao.quantidade
-        posicao.preco_medio = resultado_posicao.preco_medio
-        posicao.custo_total = resultado_posicao.custo_total
 
-    # 6. Criar registro de movimentação
-    mov = Movimentacao(
-        carteira_id=data.carteira_id,
-        conta_id=data.conta_id,
-        ativo_id=data.ativo_id,
-        tipo_movimentacao=TipoMovimentacao(data.tipo_movimentacao),
-        tipo_operacao=data.tipo_operacao,
-        data_operacao=data.data_operacao,
-        data_liquidacao=data.data_liquidacao,
-        quantidade=data.quantidade,
-        preco_unitario=data.preco_unitario,
-        valor_bruto=valor_bruto,
-        corretagem=data.corretagem,
-        emolumentos=data.emolumentos,
-        iss=data.iss,
-        outras_taxas=data.outras_taxas,
-        valor_liquido=valor_liquido,
-        observacoes=data.observacoes,
-    )
-    db.add(mov)
+        if posicao:
+            quantidade_atual = posicao.quantidade
+            preco_medio_atual = posicao.preco_medio
+        else:
+            quantidade_atual = Decimal("0")
+            preco_medio_atual = Decimal("0")
 
-    db.commit()
-    db.refresh(mov)
-    db.refresh(posicao)
+        # 3. Calcula valores financeiros da operação
+        valor_bruto, valor_liquido = _calcular_valores_financeiros(
+            quantidade=dados.quantidade,
+            preco_unitario=dados.preco_unitario,
+            corretagem=dados.corretagem,
+            emolumentos=dados.emolumentos,
+            iss=dados.iss,
+            outras_taxas=dados.outras_taxas,
+            tipo_movimentacao=tipo_mov_enum,
+        )
 
-    # 7. Retornar schema de leitura
-    return MovimentacaoRead.model_validate(mov)
+        # 4. Recalcula a posição usando o motor de preço médio
+        resultado_posicao = recalcular_posicao(
+            tipo=tipo_mov_enum.value,  # "COMPRA" ou "VENDA"
+            quantidade_atual=quantidade_atual,
+            preco_medio_atual=preco_medio_atual,
+            quantidade_operacao=dados.quantidade,
+            preco_unitario=dados.preco_unitario,
+        )
+
+        # 5. Atualiza/cria a posição
+        if posicao is None:
+            posicao = Posicao(
+                carteira_id=dados.carteira_id,
+                conta_id=dados.conta_id,
+                ativo_id=dados.ativo_id,
+                quantidade=resultado_posicao.quantidade,
+                preco_medio=resultado_posicao.preco_medio,
+                custo_total=resultado_posicao.custo_total,
+            )
+            db.add(posicao)
+        else:
+            posicao.quantidade = resultado_posicao.quantidade
+            posicao.preco_medio = resultado_posicao.preco_medio
+            posicao.custo_total = resultado_posicao.custo_total
+
+        # 6. Cria registro da movimentação
+        mov = Movimentacao(
+            carteira_id=dados.carteira_id,
+            conta_id=dados.conta_id,
+            ativo_id=dados.ativo_id,
+            tipo=tipo_mov_enum,  # <- nome correto da coluna no model ORM
+            tipo_operacao=tipo_op_enum,
+            data_operacao=dados.data_operacao,
+            data_liquidacao=dados.data_liquidacao,
+            quantidade=dados.quantidade,
+            preco_unitario=dados.preco_unitario,
+            valor_bruto=valor_bruto,
+            corretagem=dados.corretagem,
+            emolumentos=dados.emolumentos,
+            iss=dados.iss,
+            outras_taxas=dados.outras_taxas,
+            valor_liquido=valor_liquido,
+            observacoes=dados.observacoes,
+        )
+
+        db.add(mov)
+        db.commit()
+        db.refresh(mov)
+        db.refresh(posicao)
+
+        # 7. Monta a resposta manualmente
+        return MovimentacaoRead(
+            id=mov.id,
+            carteira_id=mov.carteira_id,
+            conta_id=mov.conta_id,
+            ativo_id=mov.ativo_id,
+            tipo_movimentacao=mov.tipo.value,
+            tipo_operacao=mov.tipo_operacao.value,
+            data_operacao=mov.data_operacao,
+            data_liquidacao=mov.data_liquidacao,
+            quantidade=mov.quantidade,
+            preco_unitario=mov.preco_unitario,
+            corretagem=mov.corretagem,
+            emolumentos=mov.emolumentos,
+            iss=mov.iss,
+            outras_taxas=mov.outras_taxas,
+            valor_bruto=mov.valor_bruto,
+            valor_liquido=mov.valor_liquido,
+            observacoes=mov.observacoes,
+        )
+    except Exception:
+        db.rollback()
+        raise

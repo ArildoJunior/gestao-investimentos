@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime
 from uuid import UUID, uuid4
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.movimentacao import Movimentacao
@@ -32,20 +31,13 @@ class Carteira(TimestampMixin, Base):
     # Ex.: "Real", "Simulada", "Teste", "Estratégia X"
     tipo: Mapped[str] = mapped_column(String(50), nullable=False, default="Real")
 
-    # Por enquanto não vamos amarrar a usuário; se quiser isso mais tarde, adicionamos usuario_id
-    # usuario_id: Mapped[UUID] = mapped_column(
-    #     PG_UUID(as_uuid=True),
-    #     ForeignKey("usuarios.id", ondelete="CASCADE"),
-    #     nullable=False,
-    # )
-
     ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Datas para filtros e histórico
     data_abertura: Mapped[datetime | None] = mapped_column(nullable=True)
     data_encerramento: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    # Relacionamentos (serão usados depois)
+    # Relacionamentos
     movimentacoes: Mapped[list["Movimentacao"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
@@ -57,6 +49,11 @@ class Carteira(TimestampMixin, Base):
     )
 
     posicoes: Mapped[list["Posicao"]] = relationship(
+        back_populates="carteira",
+        cascade="all, delete-orphan",
+    )
+
+    proventos: Mapped[list["Provento"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
     )

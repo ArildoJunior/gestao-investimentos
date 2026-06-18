@@ -13,7 +13,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    # Importados só para type checking, não em runtime
     from app.models.carteira import Carteira
     from app.models.conta import Conta
     from app.models.movimentacao import Movimentacao
@@ -96,13 +95,15 @@ class Aporte(TimestampMixin, Base):
     carteira: Mapped["Carteira"] = relationship(
         back_populates="aportes",
     )
-    conta: Mapped["Conta"] = relationship(
+
+    conta: Mapped["Conta | None"] = relationship(
         back_populates="aportes",
     )
 
     movimentacao: Mapped["Movimentacao | None"] = relationship(
-        back_populates="aporte_relacionado",
+        back_populates="aporte",
     )
+
     provento: Mapped["Provento | None"] = relationship(
-        back_populates="aportes_relacionados",
+        back_populates="aportes",
     )
