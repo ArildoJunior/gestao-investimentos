@@ -1,44 +1,28 @@
+# FILE: backend/app/models/posicao.py
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import (
-    CheckConstraint,
-    DateTime,
-    ForeignKey,
-    Numeric,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import CheckConstraint, ForeignKey, Numeric
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
-
-from typing import TYPE_CHECKING
+from app.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.carteira import Carteira
     from app.models.conta import Conta
     from app.models.ativo import Ativo
 
-
-class Posicao(Base):
+class Posicao(TimestampMixin, Base):
     __tablename__ = "posicoes"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
         default=uuid4,
-    )
-
-    ativo_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        ForeignKey("ativos.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
     )
 
     carteira_id: Mapped[UUID] = mapped_column(
@@ -48,52 +32,59 @@ class Posicao(Base):
         index=True,
     )
 
-    conta_id: Mapped[UUID | None] = mapped_column(
+    conta_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("contas.id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("contas.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+
+    ativo_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("ativos.id", ondelete="RESTRICT"),
+        nullable=False,
         index=True,
     )
 
     quantidade: Mapped[Decimal] = mapped_column(
         Numeric(20, 8),
         nullable=False,
+        default=Decimal("0.00"),
     )
 
     preco_medio: Mapped[Decimal] = mapped_column(
         Numeric(20, 8),
         nullable=False,
+        default=Decimal("0.00"),
     )
 
+    # Adicionado o campo custo_total que estava faltando
     custo_total: Mapped[Decimal] = mapped_column(
         Numeric(20, 8),
         nullable=False,
+        default=Decimal("0.00"),
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
+    # Relacionamentos
     carteira: Mapped["Carteira"] = relationship(
         back_populates="posicoes",
     )
-    ativo: Mapped["Ativo"] = relationship(
-        back_populates="posicoes",
-    )
+
     conta: Mapped["Conta"] = relationship(
         back_populates="posicoes",
     )
 
-    __table_args__ = (
-        UniqueConstraint(
-            "carteira_id",
-            "ativo_id",
-            "conta_id",
-            name="uq_posicoes_carteira_ativo_conta",
-        ),
-        CheckConstraint("quantidade >= 0", name="ck_posicoes_quantidade_nonneg"),
-        CheckConstraint("custo_total >= 0", name="ck_posicoes_custo_total_nonneg"),
+    ativo: Mapped["Ativo"] = relationship(
+        back_populates="posicoes",
     )
+
+    __table_args__ = (
+        CheckConstraint("quantidade >= 0", name="ck_posicoes_quantidade_nonneg"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<Posicao(id={self.id}, carteira_id={self.carteira_id}, "
+            f"ativo_id={self.ativo_id}, quantidade={self.quantidade}, "
+            f"custo_total={self.custo_total})>"
+        )

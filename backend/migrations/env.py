@@ -1,10 +1,9 @@
-from logging.config import fileConfig
-from pathlib import Path
+from __future__ import annotations
+
 import os
 import sys
-import app.models  
-from app.models.base import Base
-target_metadata = Base.metadata
+from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from dotenv import load_dotenv
@@ -15,16 +14,21 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Garante import do pacote app quando alembic é executado da pasta backend/
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+# Carrega .env do backend
 load_dotenv(BACKEND_DIR / ".env", override=False)
 
 database_url = os.getenv("DATABASE_URL", "").strip()
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+if not database_url:
+    raise RuntimeError("DATABASE_URL não configurada no backend/.env para execução do Alembic.")
 
+config.set_main_option("sqlalchemy.url", database_url)
+
+# Importa modelos após sys.path e .env configurados
 from app.models.base import Base  # noqa: E402
 import app.models  # noqa: F401, E402
 

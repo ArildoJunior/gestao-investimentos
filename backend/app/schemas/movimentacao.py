@@ -4,21 +4,18 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
-from app.models.movimentacao import TipoMovimentacao, TipoOperacao
+from app.schemas.enums import TipoMovimentacao, TipoOperacao
 
 
 class MovimentacaoBase(BaseModel):
     carteira_id: UUID
-    conta_id: UUID | None = None
+    conta_id: UUID
     ativo_id: UUID
 
-    tipo_movimentacao: str = Field(..., pattern="^(COMPRA|VENDA)$")
-    tipo_operacao: str = Field(
-        ...,
-        pattern="^(SWING|SWING_TRADE|DAY_TRADE|POSITION|OUTRO)$",
-    )
+    tipo_movimentacao: TipoMovimentacao
+    tipo_operacao: TipoOperacao
 
     data_operacao: date
     data_liquidacao: date
@@ -32,30 +29,6 @@ class MovimentacaoBase(BaseModel):
     outras_taxas: Decimal = Field(default=Decimal("0"))
 
     observacoes: str | None = None
-
-    @field_validator("tipo_movimentacao", mode="before")
-    @classmethod
-    def _normalizar_tipo_movimentacao(cls, v: object) -> str:
-        if v is None:
-            raise ValueError("tipo_movimentacao é obrigatório.")
-        valor = str(v).strip().upper()
-        if valor not in {"COMPRA", "VENDA"}:
-            raise ValueError("tipo_movimentacao inválido. Use COMPRA ou VENDA.")
-        return valor
-
-    @field_validator("tipo_operacao", mode="before")
-    @classmethod
-    def _normalizar_tipo_operacao(cls, v: object) -> str:
-        if v is None:
-            raise ValueError("tipo_operacao é obrigatório.")
-        valor = str(v).strip().upper()
-        if valor == "SWING_TRADE":
-            return "SWING"
-        if valor not in {"SWING", "DAY_TRADE", "POSITION", "OUTRO"}:
-            raise ValueError(
-                "tipo_operacao inválido. Use SWING, DAY_TRADE, POSITION ou OUTRO."
-            )
-        return valor
 
     @field_validator(
         "corretagem",
@@ -74,28 +47,20 @@ class MovimentacaoBase(BaseModel):
 
 
 class MovimentacaoCreate(MovimentacaoBase):
-    """
-    Usada na entrada da API (/POST).
-    """
     pass
 
 
 class MovimentacaoRead(BaseModel):
-    """
-    Usada na saída da API (/POST, /GET).
-    Lê diretamente do ORM Movimentacao.
-    """
-
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
 
     carteira_id: UUID
-    conta_id: UUID | None
+    conta_id: UUID
     ativo_id: UUID
 
-    tipo_movimentacao: str
-    tipo_operacao: str
+    tipo_movimentacao: TipoMovimentacao
+    tipo_operacao: TipoOperacao
 
     data_operacao: date
     data_liquidacao: date
@@ -112,17 +77,3 @@ class MovimentacaoRead(BaseModel):
     valor_liquido: Decimal
 
     observacoes: str | None = None
-
-    @field_validator("tipo_movimentacao", mode="before")
-    @classmethod
-    def _coerce_tipo_movimentacao(cls, v):
-        if isinstance(v, TipoMovimentacao):
-            return v.value
-        return v
-
-    @field_validator("tipo_operacao", mode="before")
-    @classmethod
-    def _coerce_tipo_operacao(cls, v):
-        if isinstance(v, TipoOperacao):
-            return v.value
-        return v

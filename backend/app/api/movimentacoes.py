@@ -7,11 +7,11 @@ from app.database import get_db
 from app.schemas.movimentacao import MovimentacaoCreate, MovimentacaoRead
 from app.services.movimentacao_service import registrar_movimentacao
 
-router = APIRouter(prefix="/movimentacoes", tags=["movimentacoes"])
+router = APIRouter()
 
 
 @router.post(
-    "/",
+    "",
     response_model=MovimentacaoRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -24,5 +24,10 @@ def criar_movimentacao(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )

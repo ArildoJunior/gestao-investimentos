@@ -1,14 +1,32 @@
-from importlib import import_module
-from pathlib import Path
+# backend/app/models/__init__.py
 
-from app.models.base import Base
+from .base import Base, TimestampMixin
+from .usuario import Usuario
+from .instituicao import Instituicao
+from .conta import Conta
+from .saldo_conta import SaldoConta
+from .ativo import Ativo
+from .cotacao import Cotacao
+from .carteira import Carteira
+from .movimentacao import Movimentacao
+from .aporte import Aporte
+from .posicao import Posicao
+from .evento_corporativo import EventoCorporativo
+from .provento import Provento
 
-_models_dir = Path(__file__).parent
-
-for file in _models_dir.glob("*.py"):
-    module_name = file.stem
-    if module_name in {"__init__", "base"} or module_name.startswith("_"):
-        continue
-    import_module(f"{__name__}.{module_name}")
-
-__all__ = ["Base"]
+__all__ = [
+    "Base",
+    "TimestampMixin",
+    "Usuario",
+    "Instituicao",
+    "Conta",
+    "SaldoConta",
+    "Ativo",
+    "Cotacao",
+    "Carteira",
+    "Movimentacao",
+    "Aporte",
+    "Posicao",
+    "EventoCorporativo",
+    "Provento",
+]

@@ -1,21 +1,23 @@
+# FILE: backend/app/models/carteira.py
 from __future__ import annotations
 
-from datetime import datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, List
 from uuid import UUID, uuid4
-from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String
+from sqlalchemy import Boolean, CheckConstraint, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import ObjetivoCarteira, TipoCarteira
 
 if TYPE_CHECKING:
+    from app.models.usuario import Usuario
     from app.models.movimentacao import Movimentacao
+    from app.models.aporte import Aporte
     from app.models.posicao import Posicao
     from app.models.provento import Provento
-    from app.models.aporte import Aporte
-
 
 class Carteira(TimestampMixin, Base):
     __tablename__ = "carteiras"
@@ -25,35 +27,68 @@ class Carteira(TimestampMixin, Base):
         primary_key=True,
         default=uuid4,
     )
-
+    usuario_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # Ex.: "Real", "Simulada", "Teste", "Estratégia X"
-    tipo: Mapped[str] = mapped_column(String(50), nullable=False, default="Real")
-
+    # Campos adicionados para corrigir os erros do pytest
+    descricao: Mapped[str | None] = mapped_column(String(500), nullable=True)
     ativa: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    # Datas para filtros e histórico
-    data_abertura: Mapped[datetime | None] = mapped_column(nullable=True)
-    data_encerramento: Mapped[datetime | None] = mapped_column(nullable=True)
+    tipo: Mapped[TipoCarteira] = mapped_column(
+        Enum(TipoCarteira, name="tipo_carteira_enum"),
+        nullable=False,
+        default=TipoCarteira.REAL,
+    )
+    objetivo: Mapped[ObjetivoCarteira] = mapped_column(
+        Enum(ObjetivoCarteira, name="objetivo_carteira_enum"),
+        nullable=False,
+        default=ObjetivoCarteira.LIVRE,
+    )
+    saldo_inicial: Mapped[Decimal] = mapped_column(
+        Numeric(20, 8),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    saldo_atual: Mapped[Decimal] = mapped_column(
+        Numeric(20, 8),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relacionamentos
-    movimentacoes: Mapped[list["Movimentacao"]] = relationship(
+    usuario: Mapped["Usuario"] = relationship(
+        back_populates="carteiras",
+    )
+
+    movimentacoes: Mapped[List["Movimentacao"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
     )
 
-    aportes: Mapped[list["Aporte"]] = relationship(
+    aportes: Mapped[List["Aporte"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
     )
 
-    posicoes: Mapped[list["Posicao"]] = relationship(
+    posicoes: Mapped[List["Posicao"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
     )
 
-    proventos: Mapped[list["Provento"]] = relationship(
+    proventos: Mapped[List["Provento"]] = relationship(
         back_populates="carteira",
         cascade="all, delete-orphan",
     )
+
+    __table_args__ = (
+        CheckConstraint("saldo_atual >= 0", name="ck_carteiras_saldo_atual_nonneg"),
+    )
+
+    def __repr__(self):
+        return f"<Carteira(id='{self.id}', nome='{self.nome}', usuario_id='{self.usuario_id}')>"

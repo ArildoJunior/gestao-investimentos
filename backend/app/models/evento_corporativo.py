@@ -1,9 +1,9 @@
+# FILE: backend/app/models/evento_corporativo.py
 from __future__ import annotations
 
-import enum
 from datetime import date
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4 # <-- Importado uuid4
 
 from sqlalchemy import (
     Boolean,
@@ -12,28 +12,18 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     Text,
+    # func, # <-- Removido func, pois não será usado para UUID
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import TipoEventoCorporativo
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from app.models.ativo import Ativo
-
-
-class TipoEventoCorporativo(str, enum.Enum):
-    SPLIT = "SPLIT"
-    GRUPAMENTO = "GRUPAMENTO"
-    BONIFICACAO = "BONIFICACAO"
-    SUBSCRICAO = "SUBSCRICAO"
-    AMORTIZACAO = "AMORTIZACAO"
-    INCORPORACAO = "INCORPORACAO"
-    FUSAO = "FUSAO"
-    CISAO = "CISAO"
-
 
 class EventoCorporativo(TimestampMixin, Base):
     __tablename__ = "eventos_corporativos"
@@ -41,7 +31,7 @@ class EventoCorporativo(TimestampMixin, Base):
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid4,
+        default=uuid4, # <-- Alterado para uuid4 do Python
     )
 
     ativo_id: Mapped[UUID] = mapped_column(
@@ -73,6 +63,7 @@ class EventoCorporativo(TimestampMixin, Base):
         PG_UUID(as_uuid=True),
         ForeignKey("ativos.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
 
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -85,13 +76,17 @@ class EventoCorporativo(TimestampMixin, Base):
     )
 
     ativo: Mapped["Ativo"] = relationship(
-        "Ativo",
         foreign_keys=[ativo_id],
-        backref="eventos_corporativos_origem",
+        back_populates="eventos_corporativos_origem",
     )
 
-    ativo_destino: Mapped["Ativo"] = relationship(
-        "Ativo",
+    ativo_destino: Mapped["Ativo | None"] = relationship(
         foreign_keys=[ativo_destino_id],
-        backref="eventos_corporativos_destino",
+        back_populates="eventos_corporativos_destino",
     )
+
+    def __repr__(self) -> str:
+        return (
+            f"<EventoCorporativo(id={self.id}, ativo_id={self.ativo_id}, "
+            f"tipo='{self.tipo.value}', data_evento={self.data_evento})>"
+        )

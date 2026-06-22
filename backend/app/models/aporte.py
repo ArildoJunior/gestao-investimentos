@@ -1,16 +1,17 @@
+# FILE: backend/app/models/aporte.py
 from __future__ import annotations
 
-import enum
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from typing import TYPE_CHECKING, List
+from uuid import UUID, uuid4 # <-- Importado uuid4
 
 from sqlalchemy import Date, Enum, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import TipoAporte, OrigemAporte
 
 if TYPE_CHECKING:
     from app.models.carteira import Carteira
@@ -18,28 +19,13 @@ if TYPE_CHECKING:
     from app.models.movimentacao import Movimentacao
     from app.models.provento import Provento
 
-
-class TipoAporte(str, enum.Enum):
-    EXTERNO = "EXTERNO"
-    REINVESTIMENTO = "REINVESTIMENTO"
-
-
-class OrigemAporte(str, enum.Enum):
-    DIVIDENDO = "DIVIDENDO"
-    JCP = "JCP"
-    RENDIMENTO = "RENDIMENTO"
-    JUROS_RF = "JUROS_RF"
-    GANHO_CAPITAL = "GANHO_CAPITAL"
-    OUTRO = "OUTRO"
-
-
 class Aporte(TimestampMixin, Base):
     __tablename__ = "aportes"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid4,
+        default=uuid4, # <-- Alterado para uuid4 do Python
     )
 
     carteira_id: Mapped[UUID] = mapped_column(
@@ -82,16 +68,19 @@ class Aporte(TimestampMixin, Base):
         PG_UUID(as_uuid=True),
         ForeignKey("movimentacoes.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
 
     provento_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("proventos.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
 
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Relacionamentos
     carteira: Mapped["Carteira"] = relationship(
         back_populates="aportes",
     )
@@ -107,3 +96,9 @@ class Aporte(TimestampMixin, Base):
     provento: Mapped["Provento | None"] = relationship(
         back_populates="aportes",
     )
+
+    def __repr__(self):
+        return (
+            f"<Aporte(id={self.id}, carteira_id={self.carteira_id}, "
+            f"tipo='{self.tipo.value}', valor={self.valor}, data_aporte={self.data_aporte})>"
+        )

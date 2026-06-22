@@ -1,17 +1,18 @@
+# FILE: app/schemas/provento.py
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict # Importar ConfigDict
 
+from app.schemas.enums import TipoProvento # Importação adicionada
 
 class ProventoBase(BaseModel):
     ativo_id: UUID
-    tipo: str = Field(
+    tipo: TipoProvento = Field(
         ...,
         description="DIVIDENDO, JCP, RENDIMENTO ou AMORTIZACAO",
-        pattern=r"^(DIVIDENDO|JCP|RENDIMENTO|AMORTIZACAO)$",
     )
     valor_bruto: Decimal = Field(..., gt=0)
     ir_retido: Decimal = Field(default=Decimal("0"))
@@ -36,7 +37,6 @@ class ProventoBase(BaseModel):
     def valor_liquido_calculado(self) -> Decimal:
         return self.valor_bruto - self.ir_retido
 
-
 class ProventoCreate(ProventoBase):
     """
     Payload de criação de provento.
@@ -44,20 +44,19 @@ class ProventoCreate(ProventoBase):
     """
     pass
 
-
 class ProventoRead(BaseModel):
-    id: UUID
+    model_config = ConfigDict(from_attributes=True) # Usando ConfigDict para Pydantic v2+
+
+    id: UUID = Field(..., description="ID único do provento")
     ativo_id: UUID
-    tipo: str
+    tipo: TipoProvento
     valor_bruto: Decimal
     ir_retido: Decimal
-    valor_liquido: Decimal
+    valor_liquido: Decimal # Este campo será populado pelo serviço/ORM
     data_com: date
     data_ex: date
     data_pagamento: date
     quantidade_na_data: Decimal
     reinvestido: bool
-    created_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
+    created_at: datetime = Field(..., description="Data e hora de criação do registro") # Corrigido para não opcional
+    updated_at: datetime = Field(..., description="Data e hora da última atualização do registro") # Adicionado para consistência

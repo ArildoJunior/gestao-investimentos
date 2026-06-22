@@ -1,15 +1,17 @@
+# FILE: backend/app/models/conta.py
 from __future__ import annotations
 
-import enum
 import uuid
+from datetime import date
+from decimal import Decimal
+from typing import TYPE_CHECKING, List # <-- Adicionado List para tipagem de back_populates
 
-from typing import TYPE_CHECKING
-
-from sqlalchemy import Enum, ForeignKey, Numeric, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Enum, String, ForeignKey, Date, Numeric, CheckConstraint
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import TipoConta, StatusConta, Moeda
 
 if TYPE_CHECKING:
     from app.models.instituicao import Instituicao
@@ -17,41 +19,23 @@ if TYPE_CHECKING:
     from app.models.aporte import Aporte
     from app.models.posicao import Posicao
     from app.models.provento import Provento
-
-class TipoConta(str, enum.Enum):
-    CORRENTE = "CORRENTE"
-    INVESTIMENTO = "INVESTIMENTO"
-    POUPANCA = "POUPANCA"
-
-
-class Moeda(str, enum.Enum):
-    BRL = "BRL"
-    USD = "USD"
-    EUR = "EUR"
-
-
-class StatusConta(str, enum.Enum):
-    ATIVA = "ATIVA"
-    INATIVA = "INATIVA"
-
+    from app.models.saldo_conta import SaldoConta # <-- Adicionado import para SaldoConta
 
 class Conta(TimestampMixin, Base):
     __tablename__ = "contas"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid.uuid4,
+        default=uuid.uuid4, # <-- Alterado para uuid.uuid4() do Python
     )
-
     instituicao_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        PG_UUID(as_uuid=True),
         ForeignKey("instituicoes.id", ondelete="RESTRICT"),
         nullable=False,
+        index=True,
     )
-
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
-
     tipo: Mapped[TipoConta] = mapped_column(
         Enum(TipoConta, name="tipo_conta_enum"),
         nullable=False,
@@ -63,11 +47,19 @@ class Conta(TimestampMixin, Base):
         default=Moeda.BRL,
     )
 
-    saldo_atual: Mapped[float] = mapped_column(
+    saldo_inicial: Mapped[Decimal] = mapped_column(
         Numeric(20, 8),
         nullable=False,
-        default=0,
+        default=Decimal("0.00"),
     )
+
+    saldo_atual: Mapped[Decimal] = mapped_column(
+        Numeric(20, 8),
+        nullable=False,
+        default=Decimal("0.00"),
+    )
+
+    data_abertura: Mapped[date] = mapped_column(Date, nullable=False)
 
     status: Mapped[StatusConta] = mapped_column(
         Enum(StatusConta, name="status_conta_enum"),
@@ -75,7 +67,10 @@ class Conta(TimestampMixin, Base):
         default=StatusConta.ATIVA,
     )
 
-    instituicao: Mapped["Instituicao"] = relationship("Instituicao", backref="contas")
+    # Relacionamentos
+    instituicao: Mapped["Instituicao"] = relationship(
+        back_populates="contas",
+    )
 
     movimentacoes: Mapped[list["Movimentacao"]] = relationship(
         back_populates="conta",
@@ -96,3 +91,15 @@ class Conta(TimestampMixin, Base):
         back_populates="conta",
         cascade="all, delete-orphan",
     )
+
+    saldos_contas: Mapped[List["SaldoConta"]] = relationship( # <-- Adicionado relacionamento saldos_contas
+        back_populates="conta",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        CheckConstraint("saldo_atual >= 0", name="ck_contas_saldo_atual_nonneg"),
+    )
+
+    def __repr__(self):
+        return f"<Conta(id='{self.id}', nome='{self.nome}', instituicao_id='{self.instituicao_id}')>"

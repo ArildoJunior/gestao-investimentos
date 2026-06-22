@@ -1,59 +1,25 @@
+# FILE: backend/app/models/ativo.py
 from __future__ import annotations
 
-import enum
 from decimal import Decimal
-from typing import TYPE_CHECKING      
-from uuid import UUID, uuid4
+from typing import TYPE_CHECKING, List
+from uuid import UUID, uuid4 # <-- Importado uuid4
 
 from sqlalchemy import Boolean, DateTime, Enum, String, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+# from sqlalchemy.sql import func # <-- Removido func, pois não será usado para UUID
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import TipoAtivo, SegmentoFII, RegiaoAtivo, StatusAtivo, Moeda
 
-if TYPE_CHECKING:  
+if TYPE_CHECKING:
     from app.models.carteira import Carteira
-    from app.models.conta import Conta
     from app.models.movimentacao import Movimentacao
-    from app.models.provento import Provento
     from app.models.posicao import Posicao
-
-class ClasseAtivo(str, enum.Enum):
-    ACAO = "ACAO"
-    FII = "FII"
-    ETF = "ETF"
-    BDR = "BDR"
-    REIT = "REIT"
-    STOCK = "STOCK"
-    CRIPTO = "CRIPTO"
-    FUNDO = "FUNDO"
-    OUTRO = "OUTRO"
-
-
-class SegmentoFII(str, enum.Enum):
-    TIJOLO = "TIJOLO"
-    PAPEL = "PAPEL"
-    LOGISTICO = "LOGISTICO"
-    SHOPPING = "SHOPPING"
-    LAJES_CORPORATIVAS = "LAJES_CORPORATIVAS"
-    HIBRIDO = "HIBRIDO"
-    RECEBIVEL = "RECEBIVEL"
-    FUNDO_DE_FUNDOS = "FUNDO_DE_FUNDOS"
-    OUTRO = "OUTRO"
-
-
-class Regiao(str, enum.Enum):
-    BRASIL = "BRASIL"
-    AMERICA_NORTE = "AMERICA_NORTE"
-    EUROPA = "EUROPA"
-    ASIA = "ASIA"
-    OUTRO = "OUTRO"
-
-
-class StatusAtivo(str, enum.Enum):
-    ATIVO = "ATIVO"
-    INATIVO = "INATIVO"
-
+    from app.models.provento import Provento
+    from app.models.evento_corporativo import EventoCorporativo
+    from app.models.cotacao import Cotacao # <-- Adicionado import para Cotacao
 
 class Ativo(TimestampMixin, Base):
     __tablename__ = "ativos"
@@ -61,59 +27,71 @@ class Ativo(TimestampMixin, Base):
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid4,
+        default=uuid4, # <-- Alterado para uuid4 do Python
     )
-
-    ticker: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
+    ticker: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    classe: Mapped[ClasseAtivo] = mapped_column(
-        Enum(ClasseAtivo, name="classe_ativo_enum"),
+    classe: Mapped[TipoAtivo] = mapped_column(
+        Enum(TipoAtivo, name="classe_ativo_enum"),
         nullable=False,
     )
-
-    setor: Mapped[str | None] = mapped_column(String(255), nullable=True)
-
+    setor: Mapped[str | None] = mapped_column(String(100), nullable=True)
     segmento_fii: Mapped[SegmentoFII | None] = mapped_column(
         Enum(SegmentoFII, name="segmento_fii_enum"),
         nullable=True,
     )
-
-    pais: Mapped[str] = mapped_column(String(10), nullable=False, default="BR")
-
-    regiao: Mapped[Regiao] = mapped_column(
-        Enum(Regiao, name="regiao_enum"),
+    pais: Mapped[str] = mapped_column(String(2), nullable=False, default="BR")
+    regiao: Mapped[RegiaoAtivo] = mapped_column(
+        Enum(RegiaoAtivo, name="regiao_enum"),
         nullable=False,
-        default=Regiao.BRASIL,
+        default=RegiaoAtivo.BRASIL,
     )
-
-    moeda: Mapped[str] = mapped_column(
-        Enum("BRL", "USD", "EUR", name="moeda_ativo_enum"),
+    moeda: Mapped[Moeda] = mapped_column(
+        Enum(Moeda, name="moeda_ativo_enum"),
         nullable=False,
-        default="BRL",
+        default=Moeda.BRL,
     )
-
     status: Mapped[StatusAtivo] = mapped_column(
         Enum(StatusAtivo, name="status_ativo_enum"),
         nullable=False,
         default=StatusAtivo.ATIVO,
     )
 
-    # Relacionamentos (tipos em string; não precisa importar as classes aqui)
-    movimentacoes: Mapped[list["Movimentacao"]] = relationship(
+    # Relacionamentos
+    movimentacoes: Mapped[List["Movimentacao"]] = relationship(
         back_populates="ativo",
         cascade="all, delete-orphan",
     )
 
-    posicoes: Mapped[list["Posicao"]] = relationship(
+    posicoes: Mapped[List["Posicao"]] = relationship(
         back_populates="ativo",
         cascade="all, delete-orphan",
     )
 
-    proventos: Mapped[list["Provento"]] = relationship(
+    proventos: Mapped[List["Provento"]] = relationship(
+        back_populates="ativo",
+        cascade="all, delete-orphan",
+    )
+
+    # Relacionamentos para Eventos Corporativos, agora separados e explícitos
+    eventos_corporativos_origem: Mapped[List["EventoCorporativo"]] = relationship(
+        "EventoCorporativo",
+        foreign_keys="[EventoCorporativo.ativo_id]",
+        back_populates="ativo",
+        cascade="all, delete-orphan",
+    )
+
+    eventos_corporativos_destino: Mapped[List["EventoCorporativo"]] = relationship(
+        "EventoCorporativo",
+        foreign_keys="[EventoCorporativo.ativo_destino_id]",
+        back_populates="ativo_destino",
+        cascade="all, delete-orphan",
+    )
+
+    cotacoes: Mapped[List["Cotacao"]] = relationship( # <-- Adicionado relacionamento cotacoes
         back_populates="ativo",
         cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
-        return f"<Ativo ticker={self.ticker} classe={self.classe}>"
+        return f"<Ativo ticker={self.ticker} classe={self.classe.value}>"

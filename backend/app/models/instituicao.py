@@ -1,49 +1,44 @@
+# FILE: backend/app/models/instituicao.py
 from __future__ import annotations
 
-import uuid
+from typing import TYPE_CHECKING, List
+from uuid import UUID, uuid4 # <-- Importado uuid4
 
 from sqlalchemy import Enum, String
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+# from sqlalchemy.sql import func # <-- Removido func, pois não será usado para UUID
 
 from app.models.base import Base, TimestampMixin
+from app.schemas.enums import StatusInstituicao, TipoInstituicao
 
-
-class TipoInstituicao(str):
-    CORRETORA = "CORRETORA"
-    BANCO = "BANCO"
-    OUTRO = "OUTRO"
-
-
-class StatusInstituicao(str):
-    ATIVO = "ATIVO"
-    INATIVO = "INATIVO"
-
+if TYPE_CHECKING:
+    from app.models.conta import Conta
 
 class Instituicao(TimestampMixin, Base):
     __tablename__ = "instituicoes"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid.uuid4,
+        default=uuid4, # <-- Alterado para uuid4 do Python
     )
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
-    tipo: Mapped[str] = mapped_column(
-        Enum(
-            TipoInstituicao.CORRETORA,
-            TipoInstituicao.BANCO,
-            TipoInstituicao.OUTRO,
-            name="tipo_instituicao_enum",
-        ),
+    tipo: Mapped[TipoInstituicao] = mapped_column(
+        Enum(TipoInstituicao, name="tipo_instituicao_enum"),
         nullable=False,
     )
-    status: Mapped[str] = mapped_column(
-        Enum(
-            StatusInstituicao.ATIVO,
-            StatusInstituicao.INATIVO,
-            name="status_instituicao_enum",
-        ),
+    status: Mapped[StatusInstituicao] = mapped_column(
+        Enum(StatusInstituicao, name="status_instituicao_enum"),
         nullable=False,
-        default=StatusInstituicao.ATIVO,
+        default=StatusInstituicao.ATIVA,
     )
+
+    # Relacionamentos
+    contas: Mapped[List["Conta"]] = relationship(
+        back_populates="instituicao",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self):
+        return f"<Instituicao(id='{self.id}', nome='{self.nome}')>"
