@@ -8,9 +8,11 @@ class TipoInstituicao(str, Enum):
     CORRETORA = "CORRETORA"
     OUTRO = "OUTRO"
 
+
 class StatusInstituicao(str, Enum):
     ATIVA = "ATIVA"
     INATIVA = "INATIVA"
+
 
 # Enums de Conta
 class TipoConta(str, Enum):
@@ -18,16 +20,19 @@ class TipoConta(str, Enum):
     POUPANCA = "POUPANCA"
     INVESTIMENTO = "INVESTIMENTO"
     PAGAMENTO = "PAGAMENTO"
-    OUTRO = "OUTRO" # Adicionado para cobrir casos gerais
+    OUTRO = "OUTRO"
 
-class StatusConta(str, Enum): # Adicionado com base no modelo de dados
+
+class StatusConta(str, Enum):
     ATIVA = "ATIVA"
     INATIVA = "INATIVA"
+
 
 class Moeda(str, Enum):
     BRL = "BRL"
     USD = "USD"
     EUR = "EUR"
+
 
 # Enums de Ativo
 class TipoAtivo(str, Enum):
@@ -49,18 +54,21 @@ class TipoAtivo(str, Enum):
     OPCAO = "OPCAO"
     OUTRO = "OUTRO"
 
-class StatusAtivo(str, Enum): # Adicionado com base no modelo de dados
+
+class StatusAtivo(str, Enum):
     ATIVO = "ATIVO"
     INATIVO = "INATIVO"
 
-class RegiaoAtivo(str, Enum): # Adicionado com base no modelo de dados
+
+class RegiaoAtivo(str, Enum):
     BRASIL = "BRASIL"
     AMERICA_NORTE = "AMERICA_NORTE"
     EUROPA = "EUROPA"
     ASIA = "ASIA"
     OUTRO = "OUTRO"
 
-class SegmentoFII(str, Enum): # Adicionado com base no modelo de dados
+
+class SegmentoFII(str, Enum):
     TIJOLO = "TIJOLO"
     PAPEL = "PAPEL"
     LOGISTICO = "LOGISTICO"
@@ -71,6 +79,7 @@ class SegmentoFII(str, Enum): # Adicionado com base no modelo de dados
     FUNDO_DE_FUNDOS = "FUNDO_DE_FUNDOS"
     OUTRO = "OUTRO"
 
+
 # Enums de Carteira
 class TipoCarteira(str, Enum):
     REAL = "REAL"
@@ -78,31 +87,36 @@ class TipoCarteira(str, Enum):
     SIMULADA = "SIMULADA"
     ESTRATEGIA = "ESTRATEGIA"
 
+
 class ObjetivoCarteira(str, Enum):
-    DIVIDENDOS = "DIVIDENDOS" # Corrigido conforme docx
+    DIVIDENDOS = "DIVIDENDOS"
     CRESCIMENTO = "CRESCIMENTO"
     APOSENTADORIA = "APOSENTADORIA"
-    INTERNACIONAL = "INTERNACIONAL" # Adicionado conforme docx
-    CRIPTO = "CRIPTO" # Adicionado conforme docx
-    LIVRE = "LIVRE" # Adicionado conforme docx
+    INTERNACIONAL = "INTERNACIONAL"
+    CRIPTO = "CRIPTO"
+    LIVRE = "LIVRE"
     RENDA_PASSIVA = "RENDA_PASSIVA"
     RESERVA_EMERGENCIA = "RESERVA_EMERGENCIA"
     OUTRO = "OUTRO"
+
 
 # Enums de Movimentacao
 class TipoMovimentacao(str, Enum):
     COMPRA = "COMPRA"
     VENDA = "VENDA"
 
+
 class TipoOperacao(str, Enum):
-    SWING = "SWING" # Corrigido conforme docx
+    SWING = "SWING"
     DAY_TRADE = "DAY_TRADE"
     POSITION = "POSITION"
 
-# NOVO: Enums de Aporte
+
+# Enums de Aporte
 class TipoAporte(str, Enum):
     EXTERNO = "EXTERNO"
     REINVESTIMENTO = "REINVESTIMENTO"
+
 
 class OrigemAporte(str, Enum):
     DIVIDENDO = "DIVIDENDO"
@@ -110,11 +124,9 @@ class OrigemAporte(str, Enum):
     RENDIMENTO = "RENDIMENTO"
     JUROS_RF = "JUROS_RF"
     GANHO_CAPITAL = "GANHO_CAPITAL"
+    AMORTIZACAO = "AMORTIZACAO"
     OUTRO = "OUTRO"
-    # O dossiê técnico menciona "NULL" para origem, mas em um Enum,
-    # geralmente representamos a ausência com Optional ou None no modelo,
-    # não como um membro do Enum. Se for estritamente necessário ter um
-    # membro para "NULL", ele pode ser adicionado.
+
 
 # Enums de SaldoConta
 class TipoSaldoConta(str, Enum):
@@ -125,6 +137,7 @@ class TipoSaldoConta(str, Enum):
     TED = "TED"
     AJUSTE = "AJUSTE"
 
+
 # Enums de Provento
 class TipoProvento(str, Enum):
     DIVIDENDO = "DIVIDENDO"
@@ -132,6 +145,7 @@ class TipoProvento(str, Enum):
     RENDIMENTO = "RENDIMENTO"
     AMORTIZACAO = "AMORTIZACAO"
     OUTRO = "OUTRO"
+
 
 # Enums de Renda Fixa
 class TipoRendaFixa(str, Enum):
@@ -142,55 +156,62 @@ class TipoRendaFixa(str, Enum):
     DEBENTURE = "DEBENTURE"
     CRI = "CRI"
     CRA = "CRA"
-    LC = "LC" # Adicionado conforme docx
-    LIG = "LIG" # Adicionado conforme docx
+    LC = "LC"
+    LIG = "LIG"
     OUTRO = "OUTRO"
+
 
 class IndexadorRendaFixa(str, Enum):
     CDI = "CDI"
     IPCA = "IPCA"
     SELIC = "SELIC"
-    PRE = "PRE" # Corrigido conforme docx
+    PRE = "PRE"
     IGPM = "IGPM"
-    HIBRIDO = "HIBRIDO" # Adicionado conforme docx
+    HIBRIDO = "HIBRIDO"
     OUTRO = "OUTRO"
 
-class LiquidezRendaFixa(str, Enum): # Adicionado com base no modelo de dados
+
+class LiquidezRendaFixa(str, Enum):
     DIARIA = "DIARIA"
     VENCIMENTO = "VENCIMENTO"
     SEM_LIQUIDEZ = "SEM_LIQUIDEZ"
 
-class StatusRendaFixa(str, Enum): # Adicionado com base no modelo de dados
+
+class StatusRendaFixa(str, Enum):
     ATIVO = "ATIVO"
     VENCIDO = "VENCIDO"
     RESGATADO = "RESGATADO"
 
+
 # Enums de Aluguel
-class StatusAluguel(str, Enum): # Adicionado com base no modelo de dados
+class StatusAluguel(str, Enum):
     ATIVO = "ATIVO"
     ENCERRADO = "ENCERRADO"
 
+
 # Enums de Evento Corporativo
 class TipoEventoCorporativo(str, Enum):
-    SPLIT = "SPLIT" # Adicionado conforme docx
+    SPLIT = "SPLIT"
     GRUPAMENTO = "GRUPAMENTO"
     BONIFICACAO = "BONIFICACAO"
-    SUBSCRICAO = "SUBSCRICAO" # Corrigido para SUBSCRICAO
+    SUBSCRICAO = "SUBSCRICAO"
     AMORTIZACAO = "AMORTIZACAO"
     INCORPORACAO = "INCORPORACAO"
     FUSAO = "FUSAO"
-    CISAO = "CISAO" # Corrigido para CISAO
+    CISAO = "CISAO"
     OUTRO = "OUTRO"
 
+
 # Enums de Tributacao
-class TipoImposto(str, Enum): # Este enum não aparece no docx, mas é genérico.
+class TipoImposto(str, Enum):
     IRRF = "IRRF"
     ISS = "ISS"
     PIS = "PIS"
     COFINS = "COFINS"
     OUTRO = "OUTRO"
 
-class TipoApuracaoIR(str, Enum): # Adicionado com base no modelo de dados
+
+class TipoApuracaoIR(str, Enum):
     SWING = "SWING"
     DAY_TRADE = "DAY_TRADE"
     FII = "FII"
@@ -199,30 +220,34 @@ class TipoApuracaoIR(str, Enum): # Adicionado com base no modelo de dados
     CRIPTO = "CRIPTO"
     EXTERIOR = "EXTERIOR"
 
-class StatusDARF(str, Enum): # Adicionado com base no modelo de dados
+
+class StatusDARF(str, Enum):
     PENDENTE = "PENDENTE"
     PAGO = "PAGO"
     CANCELADO = "CANCELADO"
+
 
 # Enums de Alerta
 class TipoAlerta(str, Enum):
     PRECO_ALVO = "PRECO_ALVO"
     REBALANCEAMENTO = "REBALANCEAMENTO"
-    VENCIMENTO_RF = "VENCIMENTO_RF" # Corrigido conforme docx
+    VENCIMENTO_RF = "VENCIMENTO_RF"
     PROVENTO = "PROVENTO"
-    CONCENTRACAO = "CONCENTRACAO" # Adicionado conforme docx
+    CONCENTRACAO = "CONCENTRACAO"
     META = "META"
-    VARIACAO_PRECO = "VARIACAO_PRECO" # Adicionado conforme docx
-    ISENTOMETRO = "ISENTOMETRO" # Adicionado conforme docx
+    VARIACAO_PRECO = "VARIACAO_PRECO"
+    ISENTOMETRO = "ISENTOMETRO"
     OUTRO = "OUTRO"
+
 
 # Enums de Meta
 class TipoMeta(str, Enum):
     PATRIMONIO = "PATRIMONIO"
     RENDA_PASSIVA = "RENDA_PASSIVA"
-    INDEPENDENCIA_FINANCEIRA = "INDEPENDENCIA_FINANCEIRA" # Adicionado conforme docx
-    DIVIDENDOS_MENSAIS = "DIVIDENDOS_MENSAIS" # Adicionado conforme docx
+    INDEPENDENCIA_FINANCEIRA = "INDEPENDENCIA_FINANCEIRA"
+    DIVIDENDOS_MENSAIS = "DIVIDENDOS_MENSAIS"
     OUTRO = "OUTRO"
+
 
 # Enums de Relatorio
 class TipoRelatorio(str, Enum):
@@ -232,6 +257,7 @@ class TipoRelatorio(str, Enum):
     PROVENTOS = "PROVENTOS"
     IRPF = "IRPF"
     OUTRO = "OUTRO"
+
 
 # Enums de Auditoria
 class TipoEntidadeAuditoria(str, Enum):
@@ -244,27 +270,31 @@ class TipoEntidadeAuditoria(str, Enum):
     USUARIO = "USUARIO"
     OUTRO = "OUTRO"
 
+
 class AcaoAuditoria(str, Enum):
-    INSERT = "INSERT" # Corrigido conforme docx
+    INSERT = "INSERT"
     UPDATE = "UPDATE"
     DELETE = "DELETE"
-    # LEITURA não está no docx, mas se for necessário, pode ser adicionado.
     OUTRO = "OUTRO"
 
-# Enums de Opcao (Grupo 11 - Avançado)
-class TipoOpcao(str, Enum): # Adicionado com base no modelo de dados
+
+# Enums de Opcao
+class TipoOpcao(str, Enum):
     CALL = "CALL"
     PUT = "PUT"
 
-class EstiloOpcao(str, Enum): # Adicionado com base no modelo de dados
+
+class EstiloOpcao(str, Enum):
     AMERICANA = "AMERICANA"
     EUROPEIA = "EUROPEIA"
 
-class DirecaoOpcao(str, Enum): # Adicionado com base no modelo de dados
+
+class DirecaoOpcao(str, Enum):
     COMPRADO = "COMPRADO"
     VENDIDO = "VENDIDO"
 
-class StatusOpcao(str, Enum): # Adicionado com base no modelo de dados
+
+class StatusOpcao(str, Enum):
     ABERTA = "ABERTA"
     EXERCIDA = "EXERCIDA"
     ABANDONADA = "ABANDONADA"

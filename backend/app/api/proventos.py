@@ -11,10 +11,7 @@ from app.services.provento_service import (
     listar_proventos_por_ativo,
 )
 
-router = APIRouter(
-    prefix="/proventos",
-    tags=["proventos"],
-)
+router = APIRouter()
 
 
 @router.post(
@@ -27,13 +24,12 @@ def criar_provento(
     db: Session = Depends(get_db),
 ):
     """
-    Cria um registro de provento.
+    Cria um registro de provento (dividendos, JCP, rendimentos, amortização).
 
-    Nesta fase, o reinvestimento automático pode ser controlado
-    em nível de service ou por outro endpoint específico.
+    Nesta fase, o reinvestimento automático é opcional e controlado na camada de serviço.
     """
     try:
-        return registrar_provento(db, payload)
+        return registrar_provento(db, payload, gerar_aporte_reinvestimento=False)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

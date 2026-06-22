@@ -1,28 +1,38 @@
-# FILE: app/schemas/provento.py
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict # Importar ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
-from app.schemas.enums import TipoProvento # Importação adicionada
+from app.schemas.enums import TipoProvento
+
 
 class ProventoBase(BaseModel):
+    carteira_id: Optional[UUID] = Field(
+        None, description="Carteira que recebe o provento"
+    )
+    conta_id: Optional[UUID] = Field(
+        None,
+        description="Conta de liquidação do provento (opcional)",
+    )
     ativo_id: UUID
     tipo: TipoProvento = Field(
         ...,
-        description="DIVIDENDO, JCP, RENDIMENTO ou AMORTIZACAO",
+        description="DIVIDENDO, JCP, RENDIMENTO, AMORTIZACAO ou OUTRO",
     )
     valor_bruto: Decimal = Field(..., gt=0)
-    ir_retido: Decimal = Field(default=Decimal("0"))
     data_com: date
-    data_ex: date
     data_pagamento: date
-    quantidade_na_data: Decimal = Field(..., gt=0)
+    quantidade: Decimal = Field(
+        ...,
+        gt=0,
+        description="Quantidade em posição na data-com",
+    )
     reinvestido: bool = False
+    observacoes: Optional[str] = None
 
-    @field_validator("valor_bruto", "ir_retido", "quantidade_na_data", mode="before")
+    @field_validator("valor_bruto", "quantidade", mode="before")
     def normalizar_decimal(cls, v):
         if v is None:
             return Decimal("0")
@@ -33,30 +43,25 @@ class ProventoBase(BaseModel):
         except Exception as e:
             raise ValueError(f"Valor numérico inválido: {v}") from e
 
-    @property
-    def valor_liquido_calculado(self) -> Decimal:
-        return self.valor_bruto - self.ir_retido
 
 class ProventoCreate(ProventoBase):
-    """
-    Payload de criação de provento.
-    valor_liquido será calculado na camada de serviço.
-    """
     pass
 
-class ProventoRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # Usando ConfigDict para Pydantic v2+
 
-    id: UUID = Field(..., description="ID único do provento")
+class ProventoRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    carteira_id: UUID
+    conta_id: Optional[UUID]
     ativo_id: UUID
     tipo: TipoProvento
     valor_bruto: Decimal
-    ir_retido: Decimal
-    valor_liquido: Decimal # Este campo será populado pelo serviço/ORM
+    valor_liquido: Decimal
     data_com: date
-    data_ex: date
     data_pagamento: date
-    quantidade_na_data: Decimal
+    quantidade: Decimal
     reinvestido: bool
-    created_at: datetime = Field(..., description="Data e hora de criação do registro") # Corrigido para não opcional
-    updated_at: datetime = Field(..., description="Data e hora da última atualização do registro") # Adicionado para consistência
+    observacoes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime

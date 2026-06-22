@@ -1,4 +1,6 @@
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +11,7 @@ from app.schemas.aporte import AporteCreate, AporteRead
 from app.services.aporte_service import listar_aportes_por_carteira, registrar_aporte
 
 router = APIRouter()
+
 
 @router.post(
     "",
@@ -22,10 +25,8 @@ def criar_aporte(
     try:
         return registrar_aporte(db, payload)
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
 
 @router.get(
     "",
@@ -33,7 +34,7 @@ def criar_aporte(
 )
 def listar_aportes(
     carteira_id: UUID = Query(...),
-    conta_id: Optional[UUID] = Query(None),
+    conta_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
 ) -> List[AporteRead]:
     return listar_aportes_por_carteira(db, carteira_id, conta_id)

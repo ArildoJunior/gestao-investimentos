@@ -8,6 +8,8 @@ from app.api import instituicoes
 from app.api import movimentacoes
 from app.api import posicoes
 from app.api import saldos_contas
+from app.api import proventos
+from app.api import eventos_corporativos
 
 api_router = APIRouter()
 
@@ -19,3 +21,5 @@ api_router.include_router(posicoes.router, prefix="/posicoes", tags=["Posições
 api_router.include_router(carteiras.router, prefix="/carteiras", tags=["Carteiras"])
 api_router.include_router(aportes.router, prefix="/aportes", tags=["Aportes"])
 api_router.include_router(saldos_contas.router, prefix="/saldos-contas", tags=["Saldos Contas"])
+api_router.include_router(proventos.router, prefix="/proventos", tags=["Proventos"])
+api_router.include_router(eventos_corporativos.router, prefix="/eventos-corporativos", tags=["Eventos Corporativos"])

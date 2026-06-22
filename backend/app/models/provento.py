@@ -1,12 +1,11 @@
-# FILE: backend/app/models/provento.py
 from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, List
-from uuid import UUID, uuid4 # <-- Importado uuid4
+from uuid import UUID, uuid4
 
-from sqlalchemy import Date, Enum, ForeignKey, Numeric, Text, Boolean # <-- Adicionado Boolean aqui!
+from sqlalchemy import Boolean, Date, Enum, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,13 +18,14 @@ if TYPE_CHECKING:
     from app.models.ativo import Ativo
     from app.models.aporte import Aporte
 
+
 class Provento(TimestampMixin, Base):
     __tablename__ = "proventos"
 
     id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         primary_key=True,
-        default=uuid4, # Gerado no lado da aplicação para compatibilidade com SQLite nos testes
+        default=uuid4,
     )
 
     carteira_id: Mapped[UUID] = mapped_column(
@@ -74,7 +74,7 @@ class Provento(TimestampMixin, Base):
     )
 
     reinvestido: Mapped[bool] = mapped_column(
-        Boolean, # <-- Agora Boolean está definido!
+        Boolean,
         nullable=False,
         default=False,
         server_default="false",
@@ -100,7 +100,7 @@ class Provento(TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<Provento(id={self.id}, tipo='{self.tipo.value}', "
             f"ativo_id={self.ativo_id}, valor_liquido={self.valor_liquido})>"
