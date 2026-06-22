@@ -1,42 +1,45 @@
-# FILE: backend/app/schemas/carteira.py
 from __future__ import annotations
 
-from datetime import datetime # Alterado de date para datetime
+from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict # Importado ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-# Importa os Enums centralizados para TipoCarteira e ObjetivoCarteira
-from app.schemas.enums import TipoCarteira, ObjetivoCarteira
+from app.schemas.enums import ObjetivoCarteira, TipoCarteira
 
 
 class CarteiraBase(BaseModel):
     nome: str = Field(..., min_length=1, max_length=80, description="Nome da carteira")
-    # Adicionados campos conforme o modelo de dados do dossiê técnico
-    tipo: TipoCarteira = Field(..., description="Tipo da carteira (REAL, TESTE, SIMULADA, ESTRATEGIA)")
-    objetivo: ObjetivoCarteira = Field(..., description="Objetivo da carteira (DIVIDENDOS, CRESCIMENTO, etc.)")
-    descricao: Optional[str] = Field(None, max_length=500, description="Descrição detalhada da carteira") # Tornando opcional e permitindo None
-    ativa: bool = Field(True, description="Indica se a carteira está ativa") # Default True
-    is_principal: bool = Field(False, description="Indica se é a carteira principal do usuário") # Default False
+    tipo: TipoCarteira = Field(..., description="Tipo da carteira")
+    objetivo: ObjetivoCarteira = Field(..., description="Objetivo da carteira")
+    descricao: Optional[str] = Field(None, max_length=500, description="Descrição detalhada")
+    ativa: bool = Field(True, description="Indica se a carteira está ativa")
+    saldo_inicial: Decimal = Field(Decimal("0.00"), ge=0, description="Saldo inicial")
+    saldo_atual: Decimal = Field(Decimal("0.00"), ge=0, description="Saldo atual")
+    observacoes: Optional[str] = Field(None, description="Observações")
 
 
 class CarteiraCreate(CarteiraBase):
-    pass
+    usuario_id: UUID = Field(..., description="ID do usuário dono da carteira")
 
 
-class CarteiraUpdate(BaseModel): # Herda de BaseModel para permitir todos os campos opcionais
-    nome: Optional[str] = Field(None, min_length=1, max_length=80, description="Nome da carteira")
-    tipo: Optional[TipoCarteira] = Field(None, description="Tipo da carteira (REAL, TESTE, SIMULADA, ESTRATEGIA)")
-    objetivo: Optional[ObjetivoCarteira] = Field(None, description="Objetivo da carteira (DIVIDENDOS, CRESCIMENTO, etc.)")
-    descricao: Optional[str] = Field(None, max_length=500, description="Descrição detalhada da carteira")
-    ativa: Optional[bool] = Field(None, description="Indica se a carteira está ativa")
-    is_principal: Optional[bool] = Field(None, description="Indica se é a carteira principal do usuário")
+class CarteiraUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=80)
+    tipo: Optional[TipoCarteira] = None
+    objetivo: Optional[ObjetivoCarteira] = None
+    descricao: Optional[str] = Field(None, max_length=500)
+    ativa: Optional[bool] = None
+    saldo_inicial: Optional[Decimal] = Field(None, ge=0)
+    saldo_atual: Optional[Decimal] = Field(None, ge=0)
+    observacoes: Optional[str] = None
 
 
 class CarteiraRead(CarteiraBase):
-    model_config = ConfigDict(from_attributes=True) # Usando ConfigDict para Pydantic v2+
+    model_config = ConfigDict(from_attributes=True)
 
-    id: UUID = Field(..., description="ID único da carteira")
-    created_at: datetime = Field(..., description="Data e hora de criação do registro") # Corrigido para created_at e datetime
-    updated_at: datetime = Field(..., description="Data e hora da última atualização do registro") # Adicionado updated_at
+    id: UUID
+    usuario_id: UUID
+    created_at: datetime
+    updated_at: datetime
