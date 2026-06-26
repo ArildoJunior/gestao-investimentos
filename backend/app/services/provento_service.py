@@ -103,3 +103,11 @@ def _mapear_origem_aporte(tipo_provento: TipoProvento) -> OrigemAporte:
     if tipo_provento == TipoProvento.AMORTIZACAO:
         return OrigemAporte.AMORTIZACAO
     return OrigemAporte.OUTRO
+
+def listar_proventos_por_carteira(db: Session, carteira_id: UUID):
+    return (
+        db.query(Provento)
+        .filter(Provento.carteira_id == carteira_id)
+        .order_by(Provento.data_pagamento.desc())
+        .all()
+    )

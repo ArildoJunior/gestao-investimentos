@@ -1,3 +1,5 @@
+# FILE: backend/app/api/router.py
+
 from fastapi import APIRouter
 
 from app.api import aportes
@@ -10,6 +12,7 @@ from app.api import posicoes
 from app.api import saldos_contas
 from app.api import proventos
 from app.api import eventos_corporativos
+from app.api import radar_dividendos
 
 api_router = APIRouter()
 
@@ -23,3 +26,4 @@ api_router.include_router(aportes.router, prefix="/aportes", tags=["Aportes"])
 api_router.include_router(saldos_contas.router, prefix="/saldos-contas", tags=["Saldos Contas"])
 api_router.include_router(proventos.router, prefix="/proventos", tags=["Proventos"])
 api_router.include_router(eventos_corporativos.router, prefix="/eventos-corporativos", tags=["Eventos Corporativos"])
+api_router.include_router(radar_dividendos.router, prefix="/radar-dividendos", tags=["Radar de Dividendos"])

@@ -1,6 +1,9 @@
+# FILE: backend/app/services/movimentacao_service.py
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import List # Importação adicionada
+from uuid import UUID # Importação adicionada
 
 from sqlalchemy.orm import Session
 
@@ -146,3 +149,19 @@ def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> Movimentac
     except Exception as exc:
         db.rollback()
         raise RuntimeError("Erro interno ao registrar movimentação.") from exc
+
+
+def listar_movimentacoes_por_carteira(
+    db: Session, carteira_id: UUID, skip: int = 0, limit: int = 100
+) -> List[MovimentacaoRead]:
+    """
+    Lista todas as movimentações para uma carteira específica.
+    """
+    movimentacoes = (
+        db.query(Movimentacao)
+        .filter(Movimentacao.carteira_id == carteira_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [MovimentacaoRead.model_validate(mov) for mov in movimentacoes]

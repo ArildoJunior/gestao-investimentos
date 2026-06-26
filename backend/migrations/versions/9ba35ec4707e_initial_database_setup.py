@@ -1,8 +1,8 @@
-"""Initial commit
+"""Initial database setup
 
-Revision ID: 56ff477d7396
+Revision ID: 9ba35ec4707e
 Revises: 
-Create Date: 2026-06-21 10:22:20.139356
+Create Date: 2026-06-25 11:18:18.204802
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '56ff477d7396'
+revision: str = '9ba35ec4707e'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -130,10 +130,16 @@ def upgrade() -> None:
     sa.Column('ativo_id', sa.UUID(), nullable=False),
     sa.Column('tipo', sa.Enum('COMPRA', 'VENDA', name='tipo_movimentacao_enum'), nullable=False),
     sa.Column('tipo_operacao', sa.Enum('SWING', 'DAY_TRADE', 'POSITION', name='tipo_operacao_enum'), nullable=False),
+    sa.Column('data_operacao', sa.Date(), nullable=False),
+    sa.Column('data_liquidacao', sa.Date(), nullable=False),
     sa.Column('quantidade', sa.Numeric(precision=20, scale=8), nullable=False),
-    sa.Column('preco', sa.Numeric(precision=20, scale=8), nullable=False),
-    sa.Column('custos', sa.Numeric(precision=20, scale=8), nullable=False),
-    sa.Column('data_movimentacao', sa.Date(), nullable=False),
+    sa.Column('preco_unitario', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('valor_bruto', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('corretagem', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('emolumentos', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('iss', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('outras_taxas', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('valor_liquido', sa.Numeric(precision=20, scale=8), nullable=False),
     sa.Column('observacoes', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
@@ -145,7 +151,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_movimentacoes_ativo_id'), 'movimentacoes', ['ativo_id'], unique=False)
     op.create_index(op.f('ix_movimentacoes_carteira_id'), 'movimentacoes', ['carteira_id'], unique=False)
     op.create_index(op.f('ix_movimentacoes_conta_id'), 'movimentacoes', ['conta_id'], unique=False)
-    op.create_index(op.f('ix_movimentacoes_data_movimentacao'), 'movimentacoes', ['data_movimentacao'], unique=False)
+    op.create_index(op.f('ix_movimentacoes_data_operacao'), 'movimentacoes', ['data_operacao'], unique=False)
     op.create_index(op.f('ix_movimentacoes_tipo'), 'movimentacoes', ['tipo'], unique=False)
     op.create_table('posicoes',
     sa.Column('id', sa.UUID(), nullable=False),
@@ -154,6 +160,7 @@ def upgrade() -> None:
     sa.Column('ativo_id', sa.UUID(), nullable=False),
     sa.Column('quantidade', sa.Numeric(precision=20, scale=8), nullable=False),
     sa.Column('preco_medio', sa.Numeric(precision=20, scale=8), nullable=False),
+    sa.Column('custo_total', sa.Numeric(precision=20, scale=8), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.CheckConstraint('quantidade >= 0', name='ck_posicoes_quantidade_nonneg'),
@@ -207,7 +214,7 @@ def upgrade() -> None:
     sa.Column('carteira_id', sa.UUID(), nullable=False),
     sa.Column('conta_id', sa.UUID(), nullable=True),
     sa.Column('tipo', sa.Enum('EXTERNO', 'REINVESTIMENTO', name='tipo_aporte_enum'), nullable=False),
-    sa.Column('origem', sa.Enum('DIVIDENDO', 'JCP', 'RENDIMENTO', 'JUROS_RF', 'GANHO_CAPITAL', 'OUTRO', name='origem_aporte_enum'), nullable=True),
+    sa.Column('origem', sa.Enum('DIVIDENDO', 'JCP', 'RENDIMENTO', 'JUROS_RF', 'GANHO_CAPITAL', 'AMORTIZACAO', 'OUTRO', name='origem_aporte_enum'), nullable=True),
     sa.Column('valor', sa.Numeric(precision=20, scale=8), nullable=False),
     sa.Column('data_aporte', sa.Date(), nullable=False),
     sa.Column('movimentacao_id', sa.UUID(), nullable=True),
@@ -252,7 +259,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_posicoes_ativo_id'), table_name='posicoes')
     op.drop_table('posicoes')
     op.drop_index(op.f('ix_movimentacoes_tipo'), table_name='movimentacoes')
-    op.drop_index(op.f('ix_movimentacoes_data_movimentacao'), table_name='movimentacoes')
+    op.drop_index(op.f('ix_movimentacoes_data_operacao'), table_name='movimentacoes')
     op.drop_index(op.f('ix_movimentacoes_conta_id'), table_name='movimentacoes')
     op.drop_index(op.f('ix_movimentacoes_carteira_id'), table_name='movimentacoes')
     op.drop_index(op.f('ix_movimentacoes_ativo_id'), table_name='movimentacoes')
