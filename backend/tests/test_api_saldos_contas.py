@@ -1,3 +1,4 @@
+# FILE: backend/tests/test_api_saldos_contas.py
 from __future__ import annotations
 
 from datetime import date
@@ -25,8 +26,8 @@ def test_registrar_deposito_em_saldo_conta(
         "descricao": "Depósito teste",
     }
 
-    response = client.post("/api/saldos-contas", json=payload)
-    assert response.status_code == 201
+    res = client.post("/api/saldos-contas", json=payload)
+    assert res.status_code == 201, res.text
 
     db_session.refresh(conta_data)
     assert conta_data.saldo_atual == saldo_anterior + Decimal("150.25")
@@ -34,6 +35,7 @@ def test_registrar_deposito_em_saldo_conta(
 
 def test_registrar_saque_sem_saldo_suficiente_deve_falhar(
     client: TestClient,
+    db_session: Session,
     conta_data: Conta,
 ):
     payload = {
@@ -44,36 +46,54 @@ def test_registrar_saque_sem_saldo_suficiente_deve_falhar(
         "descricao": "Saque acima do saldo",
     }
 
-    response = client.post("/api/saldos-contas", json=payload)
-    assert response.status_code == 400
-    assert "Saldo insuficiente" in response.json()["detail"]
+    res = client.post("/api/saldos-contas", json=payload)
+    assert res.status_code == 400
+    assert "Saldo insuficiente" in res.json()["detail"]
 
 
 def test_listar_saldos_por_conta(
     client: TestClient,
+    db_session: Session,
     conta_data: Conta,
 ):
-    payload_1 = {
-        "conta_id": str(conta_data.id),
+    for tipo, valor, desc in [
+        (TipoSaldoConta.DEPOSITO, "10.00", "Depósito 1"),
+        (TipoSaldoConta.PIX, "20.00", "PIX 2"),
+    ]:
+        res = client.post(
+            "/api/saldos-contas",
+            json={
+                "conta_id": str(conta_data.id),
+                "tipo": tipo.value,
+                "valor": valor,
+                "data_operacao": date.today().isoformat(),
+                "descricao": desc,
+            },
+        )
+        assert res.status_code == 201, res.text
+
+    res_get = client.get(f"/api/saldos-contas?conta_id={conta_data.id}")
+    assert res_get.status_code == 200
+    assert len(res_get.json()) >= 2
+
+
+def test_saldo_conta_nao_pertence_ao_usuario_deve_retornar_403(
+    client: TestClient,
+    db_session: Session,
+):
+    """
+    UUID aleatório que não existe no banco deve retornar 403,
+    nunca 500 — garante que o isolamento por usuário está funcionando.
+    """
+    import uuid
+
+    payload = {
+        "conta_id": str(uuid.uuid4()),
         "tipo": TipoSaldoConta.DEPOSITO.value,
-        "valor": "10.00",
+        "valor": "100.00",
         "data_operacao": date.today().isoformat(),
-        "descricao": "Depósito 1",
-    }
-    payload_2 = {
-        "conta_id": str(conta_data.id),
-        "tipo": TipoSaldoConta.PIX.value,
-        "valor": "20.00",
-        "data_operacao": date.today().isoformat(),
-        "descricao": "PIX 2",
+        "descricao": "Conta de outro usuário",
     }
 
-    r1 = client.post("/api/saldos-contas", json=payload_1)
-    r2 = client.post("/api/saldos-contas", json=payload_2)
-    assert r1.status_code == 201
-    assert r2.status_code == 201
-
-    response = client.get(f"/api/saldos-contas?conta_id={conta_data.id}")
-    assert response.status_code == 200
-    itens = response.json()
-    assert len(itens) >= 2
+    res = client.post("/api/saldos-contas", json=payload)
+    assert res.status_code == 403

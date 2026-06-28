@@ -1,8 +1,10 @@
+# FILE: backend/app/services/saldo_conta_service.py
 from __future__ import annotations
 
 from decimal import Decimal
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.conta import Conta
@@ -11,19 +13,43 @@ from app.schemas.enums import TipoSaldoConta
 from app.schemas.saldo_conta import SaldoContaCreate
 
 
+def _validar_conta_usuario(
+    db: Session,
+    conta_id: UUID,
+    usuario_id: UUID,
+) -> Conta:
+    conta = db.query(Conta).filter(
+        Conta.id == conta_id,
+        Conta.usuario_id == usuario_id,
+    ).first()
+    if conta is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta não encontrada ou não pertence ao usuário.",
+        )
+    return conta
+
+
 def _calcular_delta_saldo(tipo: TipoSaldoConta, valor: Decimal) -> Decimal:
-    if tipo in {TipoSaldoConta.DEPOSITO, TipoSaldoConta.PIX, TipoSaldoConta.TED, TipoSaldoConta.AJUSTE}:
+    if tipo in {
+        TipoSaldoConta.DEPOSITO,
+        TipoSaldoConta.PIX,
+        TipoSaldoConta.TED,
+        TipoSaldoConta.AJUSTE,
+    }:
         return valor
     if tipo in {TipoSaldoConta.SAQUE, TipoSaldoConta.TRANSFERENCIA}:
         return -valor
     raise ValueError("Tipo de saldo_conta inválido.")
 
 
-def registrar_saldo_conta(db: Session, payload: SaldoContaCreate) -> SaldoConta:
+def registrar_saldo_conta(
+    db: Session,
+    payload: SaldoContaCreate,
+    usuario_id: UUID,
+) -> SaldoConta:
     try:
-        conta = db.get(Conta, payload.conta_id)
-        if conta is None:
-            raise ValueError("Conta não encontrada.")
+        conta = _validar_conta_usuario(db, payload.conta_id, usuario_id)
 
         delta = _calcular_delta_saldo(payload.tipo, payload.valor)
         novo_saldo = (conta.saldo_atual or Decimal("0")) + delta
@@ -40,27 +66,48 @@ def registrar_saldo_conta(db: Session, payload: SaldoContaCreate) -> SaldoConta:
         )
 
         conta.saldo_atual = novo_saldo
-
         db.add(registro)
         db.commit()
         db.refresh(registro)
         return registro
-    except ValueError:
+
+    except (ValueError, HTTPException):
         db.rollback()
         raise
     except Exception as exc:
         db.rollback()
-        raise RuntimeError("Erro interno ao registrar saldo de conta.") from exc
+        raise RuntimeError(
+            "Erro interno ao registrar saldo de conta."
+        ) from exc
 
 
-def listar_saldos_conta(db: Session, conta_id: UUID) -> list[SaldoConta]:
+def listar_saldos_conta(
+    db: Session,
+    conta_id: UUID,
+    usuario_id: UUID,
+) -> list[SaldoConta]:
+    # Valida que a conta pertence ao usuário antes de expor o histórico
+    _validar_conta_usuario(db, conta_id, usuario_id)
+
     return (
         db.query(SaldoConta)
         .filter(SaldoConta.conta_id == conta_id)
-        .order_by(SaldoConta.data_operacao.desc(), SaldoConta.created_at.desc())
+        .order_by(
+            SaldoConta.data_operacao.desc(),
+            SaldoConta.created_at.desc(),
+        )
         .all()
     )
 
 
-def get_saldo_conta_by_id(db: Session, saldo_conta_id: UUID) -> SaldoConta | None:
-    return db.get(SaldoConta, saldo_conta_id)
+def get_saldo_conta_by_id(
+    db: Session,
+    saldo_conta_id: UUID,
+    usuario_id: UUID,
+) -> SaldoConta | None:
+    saldo = db.get(SaldoConta, saldo_conta_id)
+    if saldo is None:
+        return None
+    # Valida que a conta-mãe pertence ao usuário
+    _validar_conta_usuario(db, saldo.conta_id, usuario_id)
+    return saldo

@@ -1,20 +1,20 @@
 # FILE: backend/tests/conftest.py
+from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
-from decimal import Decimal
 from datetime import date
+from decimal import Decimal
+from pathlib import Path
+from uuid import UUID
 
-# Adiciona o diretório 'backend' ao sys.path para resolver importações
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 
-# Importa a Base do seu módulo de modelos, não do app.database
 from app.models.base import Base
 from app.database import get_db
 from app.models.usuario import Usuario
@@ -24,64 +24,82 @@ from app.models.carteira import Carteira
 from app.models.ativo import Ativo
 from app.models.posicao import Posicao
 from app.models.movimentacao import Movimentacao
-
-# Importa todos os enums necessários do arquivo centralizado
 from app.schemas.enums import (
     TipoInstituicao, StatusInstituicao,
     TipoConta, StatusConta, Moeda,
-    TipoAtivo, StatusAtivo, RegiaoAtivo, SegmentoFII,
+    TipoAtivo, StatusAtivo, RegiaoAtivo,
     TipoCarteira, ObjetivoCarteira,
     TipoMovimentacao, TipoOperacao,
     TipoProvento,
-    TipoRendaFixa, IndexadorRendaFixa, LiquidezRendaFixa, StatusRendaFixa,
-    StatusAluguel,
-    TipoEventoCorporativo,
-    TipoApuracaoIR, StatusDARF,
-    TipoAlerta,
-    TipoMeta,
-    TipoRelatorio,
-    TipoEntidadeAuditoria, AcaoAuditoria,
-    TipoOpcao, EstiloOpcao, DirecaoOpcao, StatusOpcao
 )
 
-# Configuração do banco de dados de teste
+# ─── Banco SQLite para testes ───────────────────────────────────────────────
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
 )
+
+# Habilita FKs no SQLite (por padrão são ignoradas)
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_conn, _):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Cria as tabelas no banco de dados de teste
+# ─── Fixtures de infraestrutura ─────────────────────────────────────────────
+
 @pytest.fixture(name="db_session")
 def db_session_fixture():
+    """Cria todas as tabelas antes de cada teste e destrói depois."""
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
-        Base.metadata.drop_all(bind=engine) # Limpa o banco após os testes
+        Base.metadata.drop_all(bind=engine)
 
-# Sobrescreve a dependência get_db para usar o banco de dados de teste
 @pytest.fixture(name="client")
-def client_fixture(db_session: Session):
+def client_fixture(db_session: Session, usuario_data: Usuario):
+    """
+    TestClient com duas substituições:
+      1. get_db → usa a sessão de teste (SQLite)
+      2. CurrentUser → retorna usuario_data sem validar JWT
+    """
     from main import app as fastapi_app
+    # CORREÇÃO: Importar get_current_user do local correto
+    from app.api.dependencies import get_current_user # <--- LINHA CORRIGIDA AQUI
 
     def override_get_db():
         yield db_session
+
+    def override_current_user():
+        return usuario_data
+
     fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_current_user] = override_current_user
+
     with TestClient(fastapi_app) as c:
         yield c
+
     fastapi_app.dependency_overrides.clear()
 
-# --- Fixtures de Dados de Teste ---
+# ─── Fixtures de dados ───────────────────────────────────────────────────────
 
 @pytest.fixture
 def usuario_data(db_session: Session) -> Usuario:
+    """
+    Usuário autenticado em todos os testes.
+    O override de CurrentUser devolve exatamente este objeto.
+    """
     usuario = Usuario(
         nome="Usuario Teste",
         email="teste@teste.com",
-        senha_hash="hash_falso"
+        senha_hash="hash_falso_para_testes",
     )
     db_session.add(usuario)
     db_session.commit()
@@ -101,9 +119,14 @@ def instituicao_data(db_session: Session) -> Instituicao:
     return instituicao
 
 @pytest.fixture
-def conta_data(db_session: Session, instituicao_data: Instituicao) -> Conta:
+def conta_data(
+    db_session: Session,
+    instituicao_data: Instituicao,
+    usuario_data: Usuario,          # ← adicionado: conta agora tem usuario_id
+) -> Conta:
     conta = Conta(
         instituicao_id=instituicao_data.id,
+        usuario_id=usuario_data.id,  # ← campo obrigatório após Phase 3.6
         nome="Conta Corrente Teste",
         tipo=TipoConta.CORRENTE,
         moeda=Moeda.BRL,
@@ -118,7 +141,10 @@ def conta_data(db_session: Session, instituicao_data: Instituicao) -> Conta:
     return conta
 
 @pytest.fixture
-def carteira_data(db_session: Session, usuario_data: Usuario) -> Carteira:
+def carteira_data(
+    db_session: Session,
+    usuario_data: Usuario,
+) -> Carteira:
     carteira = Carteira(
         usuario_id=usuario_data.id,
         nome="Minha Carteira Teste",
@@ -152,7 +178,12 @@ def ativo_data(db_session: Session) -> Ativo:
     return ativo
 
 @pytest.fixture
-def posicao_data(db_session: Session, carteira_data: Carteira, conta_data: Conta, ativo_data: Ativo) -> Posicao:
+def posicao_data(
+    db_session: Session,
+    carteira_data: Carteira,
+    conta_data: Conta,
+    ativo_data: Ativo,
+) -> Posicao:
     posicao = Posicao(
         carteira_id=carteira_data.id,
         conta_id=conta_data.id,
@@ -167,7 +198,11 @@ def posicao_data(db_session: Session, carteira_data: Carteira, conta_data: Conta
     return posicao
 
 @pytest.fixture
-def movimentacao_compra_data(carteira_data: Carteira, conta_data: Conta, ativo_data: Ativo) -> dict:
+def movimentacao_compra_data(
+    carteira_data: Carteira,
+    conta_data: Conta,
+    ativo_data: Ativo,
+) -> dict:
     return {
         "carteira_id": str(carteira_data.id),
         "conta_id": str(conta_data.id),
@@ -176,17 +211,21 @@ def movimentacao_compra_data(carteira_data: Carteira, conta_data: Conta, ativo_d
         "tipo_operacao": TipoOperacao.SWING.value,
         "data_operacao": date(2023, 1, 1).isoformat(),
         "data_liquidacao": date(2023, 1, 3).isoformat(),
-        "quantidade": 10,
-        "preco_unitario": 30.00,
-        "corretagem": 0.50,
-        "emolumentos": 0.02,
-        "iss": 0.01,
-        "outras_taxas": 0.05,
+        "quantidade": "10.00000000",
+        "preco_unitario": "30.00",
+        "corretagem": "0.50",
+        "emolumentos": "0.02",
+        "iss": "0.01",
+        "outras_taxas": "0.05",
         "observacoes": "Compra inicial de PETR4",
     }
 
 @pytest.fixture
-def movimentacao_venda_data(carteira_data: Carteira, conta_data: Conta, ativo_data: Ativo) -> dict:
+def movimentacao_venda_data(
+    carteira_data: Carteira,
+    conta_data: Conta,
+    ativo_data: Ativo,
+) -> dict:
     return {
         "carteira_id": str(carteira_data.id),
         "conta_id": str(conta_data.id),
@@ -195,11 +234,11 @@ def movimentacao_venda_data(carteira_data: Carteira, conta_data: Conta, ativo_da
         "tipo_operacao": TipoOperacao.SWING.value,
         "data_operacao": date(2023, 2, 1).isoformat(),
         "data_liquidacao": date(2023, 2, 3).isoformat(),
-        "quantidade": 5,
-        "preco_unitario": 32.00,
-        "corretagem": 0.50,
-        "emolumentos": 0.02,
-        "iss": 0.01,
-        "outras_taxas": 0.05,
+        "quantidade": "5.00000000",
+        "preco_unitario": "32.00",
+        "corretagem": "0.50",
+        "emolumentos": "0.02",
+        "iss": "0.01",
+        "outras_taxas": "0.05",
         "observacoes": "Venda parcial de PETR4",
     }

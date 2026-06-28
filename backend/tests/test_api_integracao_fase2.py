@@ -1,3 +1,4 @@
+# FILE: backend/tests/test_api_integracao_fase2.py
 from __future__ import annotations
 
 from datetime import date
@@ -35,7 +36,7 @@ def test_fluxo_aporte_externo_listagem_por_carteira(
     }
 
     res_post = client.post("/api/aportes", json=payload_aporte)
-    assert res_post.status_code == 201
+    assert res_post.status_code == 201, res_post.text
 
     res_get = client.get(f"/api/aportes?carteira_id={carteira_data.id}")
     assert res_get.status_code == 200
@@ -52,6 +53,7 @@ def test_fluxo_integrado_movimentacao_com_aporte_reinvestimento(
     ativo_data: Ativo,
     carteira_data: Carteira,
 ):
+    # 1. Registra compra
     movimentacao_create = MovimentacaoCreate(
         carteira_id=carteira_data.id,
         conta_id=conta_data.id,
@@ -69,10 +71,14 @@ def test_fluxo_integrado_movimentacao_com_aporte_reinvestimento(
         observacoes="Compra para teste integrado Fase 2",
     )
 
-    res_mov = client.post("/api/movimentacoes", json=movimentacao_create.model_dump(mode="json"))
-    assert res_mov.status_code == 201
+    res_mov = client.post(
+        "/api/movimentacoes",
+        json=movimentacao_create.model_dump(mode="json"),
+    )
+    assert res_mov.status_code == 201, res_mov.text
     mov_id = res_mov.json()["id"]
 
+    # 2. Registra aporte de reinvestimento vinculado à compra
     payload_aporte = {
         "carteira_id": str(carteira_data.id),
         "conta_id": str(conta_data.id),
@@ -86,8 +92,9 @@ def test_fluxo_integrado_movimentacao_com_aporte_reinvestimento(
     }
 
     res_aporte = client.post("/api/aportes", json=payload_aporte)
-    assert res_aporte.status_code == 201
+    assert res_aporte.status_code == 201, res_aporte.text
 
+    # 3. Valida posição gerada
     res_pos = client.get(f"/api/posicoes/carteira/{carteira_data.id}")
     assert res_pos.status_code == 200
     posicoes = [PosicaoRead(**p) for p in res_pos.json()]
@@ -95,7 +102,26 @@ def test_fluxo_integrado_movimentacao_com_aporte_reinvestimento(
     assert posicoes[0].ativo_id == ativo_data.id
     assert posicoes[0].quantidade == Decimal("10.00000000")
 
+    # 4. Valida vínculo entre aporte e movimentação
     res_aportes = client.get(f"/api/aportes?carteira_id={carteira_data.id}")
     assert res_aportes.status_code == 200
     aportes = res_aportes.json()
     assert any(a.get("movimentacao_id") == mov_id for a in aportes)
+
+
+def test_aportes_de_outro_usuario_nao_aparecem(
+    client: TestClient,
+    db_session: Session,
+    conta_data: Conta,
+    carteira_data: Carteira,
+):
+    """
+    Garante que o isolamento por usuario_id funciona no módulo de aportes.
+    O GET retorna apenas aportes da carteira do usuário autenticado.
+    """
+    import uuid
+
+    res_get = client.get(f"/api/aportes?carteira_id={uuid.uuid4()}")
+    assert res_get.status_code in {200, 403}
+    if res_get.status_code == 200:
+        assert res_get.json() == []

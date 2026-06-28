@@ -2,16 +2,50 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List # Importação adicionada
-from uuid import UUID # Importação adicionada
+from typing import List
+from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.preco_medio import recalcular_posicao
 from app.models.movimentacao import Movimentacao
 from app.models.posicao import Posicao
+from app.models.carteira import Carteira
+from app.models.conta import Conta
 from app.schemas.enums import TipoMovimentacao, TipoOperacao
 from app.schemas.movimentacao import MovimentacaoCreate, MovimentacaoRead
+
+
+def _validar_pertence_ao_usuario(
+    db: Session,
+    carteira_id: UUID,
+    conta_id: UUID,
+    usuario_id: UUID,
+) -> None:
+    """
+    Garante que a carteira e a conta pertencem ao usuário autenticado.
+    Lança HTTPException 403 se qualquer um não pertencer.
+    """
+    carteira = db.query(Carteira).filter(
+        Carteira.id == carteira_id,
+        Carteira.usuario_id == usuario_id,
+    ).first()
+    if not carteira:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira não encontrada ou não pertence ao usuário.",
+        )
+
+    conta = db.query(Conta).filter(
+        Conta.id == conta_id,
+        Conta.usuario_id == usuario_id,
+    ).first()
+    if not conta:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta não encontrada ou não pertence ao usuário.",
+        )
 
 
 def _calcular_valores_financeiros(
@@ -56,7 +90,13 @@ def _parse_tipo_operacao(value: TipoOperacao | str) -> TipoOperacao:
     return TipoOperacao(raw)
 
 
-def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> MovimentacaoRead:
+def registrar_movimentacao(
+    db: Session,
+    dados: MovimentacaoCreate,
+    usuario_id: UUID,
+) -> MovimentacaoRead:
+    _validar_pertence_ao_usuario(db, dados.carteira_id, dados.conta_id, usuario_id)
+
     try:
         tipo_mov_enum = _parse_tipo_movimentacao(dados.tipo_movimentacao)
         tipo_op_enum = _parse_tipo_operacao(dados.tipo_operacao)
@@ -97,7 +137,11 @@ def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> Movimentac
             preco_medio_atual=preco_medio_atual,
             quantidade_operacao=dados.quantidade,
             preco_unitario=dados.preco_unitario,
-            custos_operacao=custos_operacao if tipo_mov_enum == TipoMovimentacao.COMPRA else Decimal("0"),
+            custos_operacao=(
+                custos_operacao
+                if tipo_mov_enum == TipoMovimentacao.COMPRA
+                else Decimal("0")
+            ),
         )
 
         if resultado_posicao.quantidade <= Decimal("0"):
@@ -143,6 +187,10 @@ def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> Movimentac
         db.refresh(mov)
 
         return MovimentacaoRead.model_validate(mov)
+
+    except HTTPException:
+        db.rollback()
+        raise
     except ValueError:
         db.rollback()
         raise
@@ -152,16 +200,29 @@ def registrar_movimentacao(db: Session, dados: MovimentacaoCreate) -> Movimentac
 
 
 def listar_movimentacoes_por_carteira(
-    db: Session, carteira_id: UUID, skip: int = 0, limit: int = 100
+    db: Session,
+    carteira_id: UUID,
+    usuario_id: UUID,
+    skip: int = 0,
+    limit: int = 100,
 ) -> List[MovimentacaoRead]:
-    """
-    Lista todas as movimentações para uma carteira específica.
-    """
+    # Valida que a carteira pertence ao usuário
+    carteira = db.query(Carteira).filter(
+        Carteira.id == carteira_id,
+        Carteira.usuario_id == usuario_id,
+    ).first()
+    if not carteira:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira não encontrada ou não pertence ao usuário.",
+        )
+
     movimentacoes = (
         db.query(Movimentacao)
         .filter(Movimentacao.carteira_id == carteira_id)
+        .order_by(Movimentacao.data_operacao.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
-    return [MovimentacaoRead.model_validate(mov) for mov in movimentacoes]
+    return [MovimentacaoRead.model_validate(m) for m in movimentacoes]

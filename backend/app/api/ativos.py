@@ -1,3 +1,4 @@
+# FILE: backend/app/api/ativos.py
 from __future__ import annotations
 
 from typing import List
@@ -6,12 +7,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import CurrentUser # Corrigido para app.api.dependencies
 from app.database import get_db
 from app.schemas.ativo import AtivoCreate, AtivoRead, AtivoUpdate
 from app.services.ativo_service import AtivoService
 
 router = APIRouter()
 
+# Ativos são cadastros globais de mercado — qualquer usuário autenticado
+# pode ler e criar. Não há isolamento por usuario_id aqui porque
+# PETR4 é a mesma PETR4 para todos os usuários.
+# O isolamento ocorre nas posições, movimentações e carteiras.
 
 @router.post(
     "",
@@ -21,11 +27,11 @@ router = APIRouter()
 )
 def create_ativo(
     payload: AtivoCreate,
+    current_user: CurrentUser, # CORRIGIDO: Removido = Depends(CurrentUser)
     db: Session = Depends(get_db),
 ) -> AtivoRead:
     service = AtivoService(db)
     return service.create_ativo(payload)
-
 
 @router.get(
     "",
@@ -33,13 +39,13 @@ def create_ativo(
     summary="Lista todos os ativos",
 )
 def get_all_ativos(
+    current_user: CurrentUser, # CORRIGIDO: Movido para antes dos argumentos com Query
+    db: Session = Depends(get_db), # CORRIGIDO: Movido para antes dos argumentos com Query
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
 ) -> List[AtivoRead]:
     service = AtivoService(db)
     return service.get_all_ativos(skip=skip, limit=limit)
-
 
 @router.get(
     "/{ativo_id}",
@@ -48,6 +54,7 @@ def get_all_ativos(
 )
 def get_ativo_by_id(
     ativo_id: UUID,
+    current_user: CurrentUser, # CORRIGIDO: Removido = Depends(CurrentUser)
     db: Session = Depends(get_db),
 ) -> AtivoRead:
     service = AtivoService(db)
@@ -59,7 +66,6 @@ def get_ativo_by_id(
         )
     return db_ativo
 
-
 @router.put(
     "/{ativo_id}",
     response_model=AtivoRead,
@@ -68,17 +74,17 @@ def get_ativo_by_id(
 def update_ativo(
     ativo_id: UUID,
     payload: AtivoUpdate,
+    current_user: CurrentUser, # CORRIGIDO: Removido = Depends(CurrentUser)
     db: Session = Depends(get_db),
 ) -> AtivoRead:
     service = AtivoService(db)
-    updated_ativo = service.update_ativo(ativo_id, payload)
-    if updated_ativo is None:
+    updated = service.update_ativo(ativo_id, payload)
+    if updated is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ativo não encontrado",
         )
-    return updated_ativo
-
+    return updated
 
 @router.delete(
     "/{ativo_id}",
@@ -87,6 +93,7 @@ def update_ativo(
 )
 def delete_ativo(
     ativo_id: UUID,
+    current_user: CurrentUser, # CORRIGIDO: Removido = Depends(CurrentUser)
     db: Session = Depends(get_db),
 ) -> Response:
     service = AtivoService(db)

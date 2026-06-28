@@ -1,6 +1,8 @@
+# FILE: backend/app/services/aporte_service.py
 from uuid import UUID
 from typing import Optional
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.carteira import Carteira
@@ -8,21 +10,38 @@ from app.models.conta import Conta
 from app.models.aporte import Aporte
 from app.schemas.aporte import AporteCreate, AporteRead
 
-
-def registrar_aporte(db: Session, data: AporteCreate) -> AporteRead:
-    """
-    Registra um aporte, validando carteira e conta, e persistindo o registro.
-
-    Não faz, nesta fase, nenhum cálculo de rentabilidade ou evolução patrimonial.
-    Esse papel será dos módulos core (rentabilidade, evolucao_patrimonial, etc.).
-    """
-    carteira = db.get(Carteira, data.carteira_id)
+def _validar_pertence_ao_usuario(
+    db: Session,
+    carteira_id: UUID,
+    conta_id: UUID,
+    usuario_id: UUID,
+) -> None:
+    carteira = db.query(Carteira).filter(
+        Carteira.id == carteira_id,
+        Carteira.usuario_id == usuario_id,
+    ).first()
     if not carteira:
-        raise ValueError("Carteira não encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira não encontrada ou não pertence ao usuário.",
+        )
 
-    conta = db.get(Conta, data.conta_id)
+    conta = db.query(Conta).filter(
+        Conta.id == conta_id,
+        Conta.usuario_id == usuario_id,
+    ).first()
     if not conta:
-        raise ValueError("Conta não encontrada.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta não encontrada ou não pertence ao usuário.",
+        )
+
+def registrar_aporte(
+    db: Session,
+    data: AporteCreate,
+    usuario_id: UUID,
+) -> AporteRead:
+    _validar_pertence_ao_usuario(db, data.carteira_id, data.conta_id, usuario_id)
 
     aporte = Aporte(
         carteira_id=data.carteira_id,
@@ -42,20 +61,27 @@ def registrar_aporte(db: Session, data: AporteCreate) -> AporteRead:
 
     return AporteRead.model_validate(aporte)
 
-
 def listar_aportes_por_carteira(
     db: Session,
     carteira_id: UUID,
+    usuario_id: UUID,
     conta_id: Optional[UUID] = None,
 ) -> list[AporteRead]:
-    """
-    Lista aportes de uma carteira, opcionalmente filtrando por conta.
-    """
+    # Valida que a carteira pertence ao usuário
+    carteira = db.query(Carteira).filter(
+        Carteira.id == carteira_id,
+        Carteira.usuario_id == usuario_id,
+    ).first()
+    if not carteira:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Carteira não encontrada ou não pertence ao usuário.",
+        )
+
     query = db.query(Aporte).filter(Aporte.carteira_id == carteira_id)
 
     if conta_id:
         query = query.filter(Aporte.conta_id == conta_id)
 
     aportes = query.order_by(Aporte.data_aporte.asc()).all()
-
     return [AporteRead.model_validate(a) for a in aportes]

@@ -1,3 +1,4 @@
+# FILE: backend/app/schemas/carteira.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -21,7 +22,8 @@ class CarteiraBase(BaseModel):
 
 
 class CarteiraCreate(CarteiraBase):
-    usuario_id: UUID
+    # usuario_id NÃO entra no payload — é extraído do token no service/rota
+    pass
 
 
 class CarteiraUpdate(BaseModel):
